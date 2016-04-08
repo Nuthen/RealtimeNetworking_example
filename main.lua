@@ -6,6 +6,7 @@ serialize = require 'lib.ser'
 signal = require 'lib.signal'
 bitser = require 'lib.bitser'
 socket = require 'lib.sock'
+flux = require 'lib.flux'
 
 -- gamestates
 require 'states.client'

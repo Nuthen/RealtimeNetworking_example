@@ -43,10 +43,16 @@ function host:init()
     self.server:on("movePlayer", function(data, peer)
         local index = peer.server:index()
         self.players[index]:move(data.x, data.y)
+
+        self.server:log("movePlayer", data.x..' '..data.y)
     end)
 
     self.timers = {}
     self.timers.userlist = 0
+
+    self.timer = 0
+    self.tick = .05
+    self.tock = 0
 end
 
 function host:addPlayer(peer)
@@ -77,25 +83,32 @@ function host:sendUserlist()
 end
 
 function host:update(dt)
-	self.server:update(dt)
+    self.timer = self.timer + dt
 
-    self.timers.userlist = self.timers.userlist + dt
+    self.tock = self.tock + dt
+    if self.tock > self.tick then
+        self.tock = 0
+        self.server:update(dt)
 
-    if self.timers.userlist > 5 then
-        self.timers.userlist = 0
+        self.timers.userlist = self.timers.userlist + dt
 
-        for i, peer in pairs(self.server.peers) do
-            if peer:state() == "disconnected" then
-                self.peerNames[peer] = nil
+        if self.timers.userlist > 5 then
+            self.timers.userlist = 0
+
+            for i, peer in pairs(self.server.peers) do
+                if peer:state() == "disconnected" then
+                    self.peerNames[peer] = nil
+                end
             end
         end
-    end
 
-    for k, player in pairs(self.players) do
-        if player.hasMoved then
-            player.hasMoved = false
+        for k, player in pairs(self.players) do
+            --self.server:emitToAll("sendTime", self.timer)
+            if player.hasMoved then
+                player.hasMoved = false
 
-            self.server:emitToAll("movePlayer", {x = player.x, y = player.y, peerIndex = player.peerIndex})
+                self.server:emitToAll("movePlayer", {x = player.x, y = player.y, peerIndex = player.peerIndex, time = self.timer})
+            end
         end
     end
 end
@@ -104,7 +117,7 @@ function host:draw()
     if DEBUG then
     	love.graphics.setFont(font[16])
     	love.graphics.print(love.timer.getFPS(), 5, 5)
-        love.graphics.print("Memory usage: " .. math.floor(collectgarbage("count")/1000) .. "MB", 5, 25)
+        love.graphics.print("Memory usage: " .. collectgarbage("count")/1000 .. "MB", 5, 25)
     end
 
     love.graphics.print("Connected users:", 5, 40)

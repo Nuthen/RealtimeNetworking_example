@@ -11,24 +11,27 @@ function Player:initialize()
 
 	self.peerIndex = 0
 
-	self.speed = 3
+	self.speed = 100
 
 	self.hasMoved = false
+	self.goalX = self.x
+	self.goalY = self.y
+	self.lerpTime = 1
 end
 
-function Player:inputUpdate()
+function Player:inputUpdate(dt)
 	local dx, dy = 0, 0
 
 	if love.keyboard.isDown('w', 'up') then
-		dy = -1
+		dy = -dt
 	elseif love.keyboard.isDown('s', 'down') then
-		dy = 1
+		dy = dt
 	end
 
 	if love.keyboard.isDown('a', 'left') then
-		dx = -1
+		dx = -dt
 	elseif love.keyboard.isDown('d', 'right') then
-		dx = 1
+		dx = dt
 	end
 
 	return dx, dy
@@ -41,6 +44,18 @@ function Player:move(dx, dy)
 	if dx ~= 0 or dy ~= 0 then
 		self.hasMoved = true
 	end
+end
+
+function Player:moveTo(x, y, lerp)
+	self.goalX = x
+	self.goalY = y
+	self.lerpTime = lerp
+end
+
+function Player:moveUpdate()
+	--error(self.lerpTime..' '..(self.x - self.goalX)..' '..self.x..' '..self.goalX)
+	self.x = self.x + (self.goalX - self.x)/self.lerpTime / 500
+	self.y = self.y + (self.goalY - self.y)/self.lerpTime / 500
 end
 
 function Player:draw()
