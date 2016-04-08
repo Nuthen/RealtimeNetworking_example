@@ -61,8 +61,10 @@ function game:init()
             --error(player.peerIndex..' '..data.peerIndex)
 
             if player.peerIndex == data.peerIndex then
-                --error(data.x..' '..data.y..' '..player.x..' '..player.y)
-                player:moveTo(data.x, data.y, self.lerpTime)
+                --if player.peerIndex ~= self.ownPlayerIndex then
+                    --error(data.x..' '..data.y..' '..player.x..' '..player.y)
+                    player:moveTo(data.x, data.y, self.lerpTime)
+                --end
             end
         end
     end)
@@ -97,7 +99,11 @@ function game:quit()
 end
 
 function game:keypressed(key, code)
-
+    if key == 'f1' then
+        for k, player in pairs(self.players) do
+            player.showRealPos = not player.showRealPos
+        end
+    end
 end
 
 function game:keyreleased(key, code)
@@ -144,7 +150,9 @@ function game:update(dt)
     end
 
     for k, player in pairs(self.players) do
-        player:moveUpdate()
+        if player.peerIndex ~= self.ownPlayerIndex then
+            player:moveUpdate(dt)
+        end
     end
 end
 

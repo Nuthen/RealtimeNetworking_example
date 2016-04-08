@@ -11,12 +11,14 @@ function Player:initialize()
 
 	self.peerIndex = 0
 
-	self.speed = 100
+	self.speed = 200
 
 	self.hasMoved = false
 	self.goalX = self.x
 	self.goalY = self.y
 	self.lerpTime = 1
+
+	self.showRealPos = false
 end
 
 function Player:inputUpdate(dt)
@@ -33,6 +35,8 @@ function Player:inputUpdate(dt)
 	elseif love.keyboard.isDown('d', 'right') then
 		dx = dt
 	end
+
+	self:move(dx, dy)
 
 	return dx, dy
 end
@@ -52,14 +56,19 @@ function Player:moveTo(x, y, lerp)
 	self.lerpTime = lerp
 end
 
-function Player:moveUpdate()
+function Player:moveUpdate(dt)
 	--error(self.lerpTime..' '..(self.x - self.goalX)..' '..self.x..' '..self.goalX)
-	self.x = self.x + (self.goalX - self.x)/self.lerpTime / 500
-	self.y = self.y + (self.goalY - self.y)/self.lerpTime / 500
+	self.x = self.x + (self.goalX - self.x)/self.lerpTime * dt
+	self.y = self.y + (self.goalY - self.y)/self.lerpTime * dt
 end
 
 function Player:draw()
 	love.graphics.setColor(self.color)
 
 	love.graphics.rectangle('fill', self.x, self.y, self.width, self.height)
+
+	if self.showRealPos then
+		love.graphics.setColor(255, 0, 0, 255)
+		love.graphics.rectangle('fill', self.goalX, self.goalY, self.width, self.height)
+	end
 end

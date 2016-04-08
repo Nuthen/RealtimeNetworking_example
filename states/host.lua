@@ -107,7 +107,9 @@ function host:update(dt)
             if player.hasMoved then
                 player.hasMoved = false
 
-                self.server:emitToAll("movePlayer", {x = player.x, y = player.y, peerIndex = player.peerIndex, time = self.timer})
+                local xPos = math.floor(player.x*1000)/1000
+                local yPos = math.floor(player.y*1000)/1000
+                self.server:emitToAll("movePlayer", {x = xPos, y = yPos, peerIndex = player.peerIndex, time = self.timer})
             end
         end
     end
