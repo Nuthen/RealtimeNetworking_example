@@ -4,7 +4,8 @@ DEBUG = true
 function host:init()
     self.players = {}
 
-	self.server = socket.Server:new("localhost", 22122)
+	--self.server = socket.Server:new("localhost", 22122)
+    self.server = socket.Server:new("*", 22122)
     print('--- server ---')
     print('running on '..self.server.hostname..":"..self.server.port)
 
