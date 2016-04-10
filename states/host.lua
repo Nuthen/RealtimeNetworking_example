@@ -47,6 +47,13 @@ function host:init()
         self.server:log("movePlayer", data.x..' '..data.y)
     end)
 
+    self.server:on("playerInput", function(data, peer)
+        local index = peer.server:index()
+        self.players[index]:setInput(data.dir, data.state, data.time)
+
+        self.server:log("movePlayer", data.dir..' '.. (data.state and "true" or "false"))
+    end)
+
     self.timers = {}
     self.timers.userlist = 0
 
@@ -86,9 +93,16 @@ function host:update(dt)
     self.timer = self.timer + dt
 
     self.tock = self.tock + dt
+
+
+    for k, player in pairs(self.players) do
+        player:moveBy(dt) -- added this
+    end
+
     if self.tock > self.tick then
         self.tock = 0
-        self.server:update(dt)
+
+        self.server:update(dt) -- outside the timer??
 
         self.timers.userlist = self.timers.userlist + dt
 
@@ -107,9 +121,19 @@ function host:update(dt)
             if player.hasMoved then
                 player.hasMoved = false
 
+                --local xPos = math.floor(player.x*1000)/1000
+                --local yPos = math.floor(player.y*1000)/1000
+
                 local xPos = math.floor(player.x*1000)/1000
                 local yPos = math.floor(player.y*1000)/1000
+
+                local xPosCalc = math.floor(player.calculatedX*1000)/1000
+                local yPosCalc = math.floor(player.calculatedY*1000)/1000
+
+                -- the time should also be floored
                 self.server:emitToAll("movePlayer", {x = xPos, y = yPos, peerIndex = player.peerIndex, time = self.timer})
+
+                --self.server:emitToAll("calcPlayer", {x = xPosCalc, y = yPosCalc, peerIndex = player.peerIndex, time = self.timer})
             end
         end
     end
