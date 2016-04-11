@@ -297,6 +297,9 @@ function Player:moveBy(dt)
 		self.timeDifferenceY = math.max(0, self.timeDifferenceY - dt)
 	end
 
+	dx = math.min(dx, self.speed*dt)
+	dy = math.min(dy, self.speed*dt)
+
 	self.x = self.x + dx
 	self.y = self.y + dy
 
