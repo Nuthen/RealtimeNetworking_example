@@ -153,4 +153,10 @@ function host:draw()
         love.graphics.print(name, 5, 40+25*j)
         j = j + 1
     end
+
+
+    -- debug
+    for k, player in pairs(self.players) do
+        player:draw()
+    end
 end

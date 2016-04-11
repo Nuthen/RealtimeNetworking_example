@@ -32,6 +32,13 @@ function Player:initialize()
 	self.calculatedX = self.x
 	self.calculatedY = self.y
 	self.showCalcPos = false
+
+	-- difference in predictions
+	self.xDiff = 0
+	self.yDiff = 0
+	self.timeBehind = 0
+	self.timeDifferenceX = 0
+	self.timeDifferenceY = 0
 end
 
 -- used by client
@@ -108,6 +115,7 @@ function Player:inputUpdate(dt)
 	end
 end
 
+-- used by the server
 function Player:setInput(dir, state, time)
 	if dir == 'up' then
 		self.moveDir.up = state
@@ -171,10 +179,14 @@ function Player:moveActual(dir, diff)
 
 	-- this is an important step
 	if dx < -.00001 or dx > .00001 then -- check if it is basically not 0 (floating points can be weird)
-		self.x = self.calculatedX
+		self.xDiff = self.calculatedX - self.x
+		self.goalX = self.calculatedX
+		self.timeDifferenceX = self.timeDifferenceX + math.abs(self.xDiff) / self.speed
 	end
 	if dy < -.00001 or dy > .00001 then
-		self.y = self.calculatedY
+		self.yDiff = self.calculatedY - self.y
+		self.goalY = self.calculatedY
+		self.timeDifferenceY = self.timeDifferenceY + math.abs(self.yDiff) / self.speed
 	end
 end
 
@@ -273,6 +285,16 @@ function Player:moveBy(dt)
 	end
 	if self.moveDir.right then
 		dx = dx + self.speed * dt * overprediction
+	end
+
+	if self.timeDifferenceX > 0 then
+		dx = dx + (self.goalX - self.x - dx)/self.timeDifferenceX * dt
+		self.timeDifferenceX = math.max(0, self.timeDifferenceX - dt)
+	end
+
+	if self.timeDifferenceY > 0 then
+		dy = dy + (self.goalY - self.y - dy)/self.timeDifferenceY * dt
+		self.timeDifferenceY = math.max(0, self.timeDifferenceY - dt)
 	end
 
 	self.x = self.x + dx
