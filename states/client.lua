@@ -72,6 +72,8 @@ function game:init()
 
     self.lastVerifyX = 0
     self.lastVerifyY = 0
+
+    self.readCount = 2
 end
 
 function game:enter(prev, hostname, username)
@@ -138,7 +140,10 @@ function game:update(dt)
     self.tock = self.tock + dt
     if self.tock > self.tick then
         self.tock = 0
-        self.client:update(dt)
+
+        for i = 1, self.readCount do
+            self.client:update(dt)
+        end
 
         self.previousTime = self.latestServerTime -- set the previous time to whatever the latest time is, after the client updates
         self.additionalTime = 0

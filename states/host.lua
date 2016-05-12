@@ -68,6 +68,8 @@ function host:init()
     self.timer = 0
     self.tick = 1/60
     self.tock = 0
+
+    self.readCount = 2
 end
 
 function host:addPlayer(peer)
@@ -110,7 +112,9 @@ function host:update(dt)
     if self.tock > self.tick then
         self.tock = 0
 
-        self.server:update(dt)
+        for i = 1, self.readCount do
+            self.server:update(dt)
+        end
 
         self.timers.userlist = self.timers.userlist + dt
 
