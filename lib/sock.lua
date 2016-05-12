@@ -8,7 +8,7 @@ function sock.Server:initialize(hostname, port)
     self.hostname = hostname or "localhost"
     self.port = port or 22122
     self.host = enet.host_create(hostname .. ":" .. port)
-    self.timeout = 100
+    self.timeout = 0 -- 100
 
     if not self.host then
         error("Failed to create the host. Is there another server running on :"..self.port.."?")

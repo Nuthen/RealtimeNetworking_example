@@ -13,8 +13,10 @@ function connect:init()
     self.addressInput.border = {127, 127, 127}
 end
 
-function connect:enter()
-
+function connect:enter(previous, name)
+    if name then
+        state.switch(game, "127.0.0.1", name)
+    end
 end
 
 function connect:keypressed(key, code)

@@ -1,8 +1,8 @@
 Player = class('Player')
 
 function Player:initialize(x, y, color, peerIndex)
-	self.x = x or math.random(0, 1280)
-	self.y = y or math.random(0, 720)
+	self.x = x or math.random(0, love.graphics.getWidth())
+	self.y = y or math.random(0, love.graphics.getHeight())
 
 	-- this is the goal position to be tweened towards
 	-- on the client, it slowly moves it to where the server says it should be
@@ -218,16 +218,13 @@ function Player:moveTo(x, y, lerp)
 end
 
 function Player:moveUpdate(dt)
-	--error(self.lerpTime..' '..(self.x - self.goalX)..' '..self.x..' '..self.goalX)
+	if self.lerpTime == 0 then self.lerpTime = 0.000001 end -- avoid the divide by zero if it happens!
 	local dx, dy = (self.goalX - self.x)/self.lerpTime * dt, (self.goalY - self.y)/self.lerpTime * dt
 	local velocity = vector(dx, dy)
-	-- why does this make the movement jumpy/choppy? does it ever run the first part? I think I see the issue with it though
-	if velocity:len() >= self.speed * dt then
+
+	if velocity:len() >= self.speed * dt then -- if the distance it's trying to move is greater than the distance it should be allowed to move, then limit it
 		velocity = velocity:normalized() * self.speed * dt
 		dx, dy = velocity:unpack()
-	else
-		dx, dy = dx, dy
-		--error(velocity:len()..' '..self.speed * dt)
 	end
 
 	self.x = self.x + dx
@@ -320,6 +317,7 @@ function Player:draw()
 
 	love.graphics.setColor(255, 255, 255)
 
+	--[[
 	local i = 100
 
 	love.graphics.print("up prev".." ".. (self.prevDir.up and "true" or "false"), 5, i)
@@ -339,4 +337,5 @@ function Player:draw()
 	i = i + 35
 	love.graphics.print("right move".." ".. (self.moveDir.right and "true" or "false"), 5, i)
 	i = i + 35
+	]]
 end

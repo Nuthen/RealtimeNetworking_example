@@ -52,14 +52,28 @@ function host:init()
         local index = peer.server:index()
         self.players[index]:setInput(data.dir, data.state, data.time)
 
-        self.server:log("movePlayer", data.dir..' '.. (data.state and "true" or "false"))
+        self.server:log("playerInput", data.dir..' '.. (data.state and "true" or "false"))
+    end)
+
+    self.server:on("posVerify", function(data, peer)
+        local index = peer.server:index()
+        local player = self.players[index]
+        player.x = data.x
+        player.y = data.y
+
+        local xPos = math.floor(player.x*1000)/1000
+        local yPos = math.floor(player.y*1000)/1000
+        local timeRounded = math.floor(self.timer * 10000) / 10000
+        self.server:emitToAll("movePlayer", {x = xPos, y = yPos, peerIndex = player.peerIndex, time = timeRounded})
+
+        self.server:log("posVerify", data.x..' '.. data.y)
     end)
 
     self.timers = {}
     self.timers.userlist = 0
 
     self.timer = 0
-    self.tick = .1 -- 100 ms
+    self.tick = 1/60
     self.tock = 0
 end
 
@@ -97,13 +111,13 @@ function host:update(dt)
 
 
     for k, player in pairs(self.players) do
-        player:moveBy(dt) -- added this
+        player:moveBy(dt)
     end
 
     if self.tock > self.tick then
         self.tock = 0
 
-        self.server:update(dt) -- outside the timer??
+        self.server:update(dt)
 
         self.timers.userlist = self.timers.userlist + dt
 
@@ -122,17 +136,14 @@ function host:update(dt)
             if player.hasMoved then
                 player.hasMoved = false
 
-                --local xPos = math.floor(player.x*1000)/1000
-                --local yPos = math.floor(player.y*1000)/1000
-
                 local xPos = math.floor(player.x*1000)/1000
                 local yPos = math.floor(player.y*1000)/1000
 
                 local xPosCalc = math.floor(player.calculatedX*1000)/1000
                 local yPosCalc = math.floor(player.calculatedY*1000)/1000
 
-                -- the time should also be floored
-                self.server:emitToAll("movePlayer", {x = xPos, y = yPos, peerIndex = player.peerIndex, time = self.timer})
+                local timeRounded = math.floor(self.timer * 10000) / 10000
+                self.server:emitToAll("movePlayer", {x = xPos, y = yPos, peerIndex = player.peerIndex, time = timeRounded})
 
                 --self.server:emitToAll("calcPlayer", {x = xPosCalc, y = yPosCalc, peerIndex = player.peerIndex, time = self.timer})
             end
@@ -143,7 +154,7 @@ end
 function host:draw()
     if DEBUG then
     	love.graphics.setFont(font[16])
-    	love.graphics.print(love.timer.getFPS(), 5, 5)
+    	love.graphics.print('FPS: '..love.timer.getFPS(), 5, 5)
         love.graphics.print("Memory usage: " .. collectgarbage("count")/1000 .. "MB", 5, 25)
     end
 
@@ -154,6 +165,16 @@ function host:draw()
         j = j + 1
     end
 
+    for i = 1, #self.players do
+        local player = self.players[i]
+        love.graphics.print('#'..player.peerIndex, 100, 40+25*i)
+    end
+
+    for i, peer in ipairs(self.server.peers) do
+        --error(peer)
+        local ping = peer:round_trip_time() or -1
+        love.graphics.print('Ping: '..ping, 140, 40+25*i)
+    end
 
     -- debug
     for k, player in pairs(self.players) do
