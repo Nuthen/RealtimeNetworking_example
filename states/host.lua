@@ -41,13 +41,6 @@ function host:init()
         self:sendUserlist()
     end)
 
-    self.server:on("movePlayer", function(data, peer)
-        local index = peer.server:index()
-        self.players[index]:move(data.x, data.y)
-
-        self.server:log("movePlayer", data.x..' '..data.y)
-    end)
-
     self.server:on("playerInput", function(data, peer)
         local index = peer.server:index()
         self.players[index]:setInput(data.dir, data.state, data.time)
@@ -132,7 +125,6 @@ function host:update(dt)
         end
 
         for k, player in pairs(self.players) do
-            --self.server:emitToAll("sendTime", self.timer)
             if player.hasMoved then
                 player.hasMoved = false
 
@@ -144,8 +136,6 @@ function host:update(dt)
 
                 local timeRounded = math.floor(self.timer * 10000) / 10000
                 self.server:emitToAll("movePlayer", {x = xPos, y = yPos, peerIndex = player.peerIndex, time = timeRounded})
-
-                --self.server:emitToAll("calcPlayer", {x = xPosCalc, y = yPosCalc, peerIndex = player.peerIndex, time = self.timer})
             end
         end
     end

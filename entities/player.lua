@@ -32,6 +32,9 @@ function Player:initialize(x, y, color, peerIndex)
 	self.showRealPos = false
 	self.autono = false
 
+    self.rotateX = 0
+    self.rotateY = 0
+
 	self.circleSize = math.random(5, 15)
 
 	-- boolean for each direction, if you are moving in a given direction or not
@@ -56,6 +59,11 @@ function Player:setAutono()
 
 	--self.prevDir = {up = false, down = false, left = false, right = false}
 	self.moveDir = {up = false, down = false, left = false, right = false}
+
+	if self.autono then
+    	self.rotateX = self.x
+    	self.rotateY = self.y
+    end
 end
 
 -- used by client
@@ -67,17 +75,17 @@ function Player:inputUpdate(dt)
 		local dx = math.sin(game.timer * self.circleSize)
 		local dy = math.cos(game.timer * self.circleSize)
 
-		if dx >= .1 then
+		if dx > 0 then
 			self.moveDir.right = true
 			self.moveDir.left = false
-		elseif dx <= .1 then
+		elseif dx < 0 then
 			self.moveDir.right = false
 			self.moveDir.left = true
 		end
-		if dy >= .1 then
+		if dy > 0 then
 			self.moveDir.down = true
 			self.moveDir.up = false
-		elseif dy <= .1 then
+		elseif dy < 0 then
 			self.moveDir.down = false
 			self.moveDir.up = true
 		end
@@ -125,7 +133,7 @@ function Player:setInput(dir, state, time)
 		else
 			local diff = time - self.lastTime.up
 			self.moveTime.up = diff
-			self:moveActual('up', diff)
+			--self:moveActual('up', diff)
 		end
 	end
 	if dir == 'down' then
@@ -135,7 +143,7 @@ function Player:setInput(dir, state, time)
 		else
 			local diff = time - self.lastTime.down
 			self.moveTime.down = diff
-			self:moveActual('down', diff)
+			--self:moveActual('down', diff)
 		end
 	end
 	if dir == 'left' then
@@ -145,7 +153,7 @@ function Player:setInput(dir, state, time)
 		else
 			local diff = time - self.lastTime.left
 			self.moveTime.left = diff
-			self:moveActual('left', diff)
+			--self:moveActual('left', diff)
 		end
 	end
 	if dir == 'right' then
@@ -155,7 +163,7 @@ function Player:setInput(dir, state, time)
 		else
 			local diff = time - self.lastTime.right
 			self.moveTime.right = diff
-			self:moveActual('right', diff)
+			--self:moveActual('right', diff)
 		end
 	end
 end
@@ -193,21 +201,12 @@ function Player:moveActual(dir, diff)
 	end
 end
 
+-- used by the client
 function Player:resetDir()
 	self.prevDir.up = self.moveDir.up
 	self.prevDir.down = self.moveDir.down
 	self.prevDir.left = self.moveDir.left
 	self.prevDir.right = self.moveDir.right
-end
-
--- used by the server
-function Player:move(dx, dy)
-	self.x = self.x + dx * self.speed
-	self.y = self.y + dy * self.speed
-
-	if dx ~= 0 or dy ~= 0 then
-		self.hasMoved = true
-	end
 end
 
 -- used by the client to set the interpolation
@@ -217,6 +216,7 @@ function Player:moveTo(x, y, lerp)
 	self.lerpTime = lerp
 end
 
+-- used by the client
 function Player:moveUpdate(dt)
 	if self.lerpTime == 0 then self.lerpTime = 0.000001 end -- avoid the divide by zero if it happens!
 	local dx, dy = (self.goalX - self.x)/self.lerpTime * dt, (self.goalY - self.y)/self.lerpTime * dt
@@ -231,6 +231,7 @@ function Player:moveUpdate(dt)
 	self.y = self.y + dy
 end
 
+-- used by the client
 function Player:movePrediction(dt)
 	local dx, dy = 0, 0
 
@@ -252,6 +253,7 @@ function Player:movePrediction(dt)
 	self.y = self.y + dy
 end
 
+-- used by the server
 function Player:moveBy(dt)
 	local dx, dy = 0, 0
 	--local overprediction = .7 -- this should probably not be used, it was just used for guessing
@@ -316,26 +318,4 @@ function Player:draw()
 	end
 
 	love.graphics.setColor(255, 255, 255)
-
-	--[[
-	local i = 100
-
-	love.graphics.print("up prev".." ".. (self.prevDir.up and "true" or "false"), 5, i)
-	i = i + 35
-	love.graphics.print("down prev".." ".. (self.prevDir.down and "true" or "false"), 5, i)
-	i = i + 35
-	love.graphics.print("left prev".." ".. (self.prevDir.left and "true" or "false"), 5, i)
-	i = i + 35
-	love.graphics.print("right prev".." ".. (self.prevDir.right and "true" or "false"), 5, i)
-	i = i + 35
-
-	love.graphics.print("up move".." ".. (self.moveDir.up and "true" or "false"), 5, i)
-	i = i + 35
-	love.graphics.print("down move".." ".. (self.moveDir.down and "true" or "false"), 5, i)
-	i = i + 35
-	love.graphics.print("left move".." ".. (self.moveDir.left and "true" or "false"), 5, i)
-	i = i + 35
-	love.graphics.print("right move".." ".. (self.moveDir.right and "true" or "false"), 5, i)
-	i = i + 35
-	]]
 end

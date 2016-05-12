@@ -34,56 +34,18 @@ function game:init()
         self.ownPlayerIndex = data
     end)
 
-    self.client:on("sendTime", function(data)
-        local sentTime = data
-        self.latestServerTime = sentTime
-        local difference = sentTime - self.previousTime
-
-        self.lerpTime = difference
-    end)
-
     self.client:on("movePlayer", function(data)
         local sentTime = data.time
         self.latestServerTime = sentTime
-        -- local difference = self.timer - sentTime -- might work better
         local difference = sentTime - self.previousTime + self.additionalTime
 
         self.lerpTime = difference
 
         local pingTime = self.client.server:last_round_trip_time() -- not sure where to use this
-        --self.lerpTime = self.lerpTime - math.abs(self.lerpTime - pingTime)/2 -- not over 2? too slow...
 
         for k, player in pairs(self.players) do
-            --error(player.peerIndex..' '..data.peerIndex)
-
             if player.peerIndex == data.peerIndex then
-                --if player.peerIndex ~= self.ownPlayerIndex then
-                    --error(data.x..' '..data.y..' '..player.x..' '..player.y)
-                    player:moveTo(data.x, data.y, self.lerpTime)
-                --end
-            end
-        end
-    end)
-
-    self.client:on("calcPlayer", function(data)
-        --[[
-        local sentTime = data.time
-        self.latestServerTime = sentTime
-        -- local difference = self.timer - sentTime -- might work better
-        local difference = sentTime - self.previousTime
-
-        self.lerpTime = difference
-]]
-        for k, player in pairs(self.players) do
-            --error(player.peerIndex..' '..data.peerIndex)
-
-            if player.peerIndex == data.peerIndex then
-                --if player.peerIndex ~= self.ownPlayerIndex then
-                    --error(data.x..' '..data.y..' '..player.x..' '..player.y)
-                    --player:moveTo(data.x, data.y, self.lerpTime)
-                --end
-                player.calculatedX = data.x
-                player.calculatedY = data.y
+                player:moveTo(data.x, data.y, self.lerpTime)
             end
         end
     end)
@@ -97,7 +59,7 @@ function game:init()
     self.tick = 1/60
     self.tock = 0
 
-    self.verifyTick = .5
+    self.verifyTick = 10000
     self.verifyTock = 0
 
     self.moveInput = {x = 0, y = 0}
@@ -208,11 +170,21 @@ function game:update(dt)
                     self.client:emit("playerInput", {dir = "right", state = player.moveDir.right, time = time})
                 end
 
+                if not player.moveDir.up and not player.moveDir.down and not player.moveDir.left and not player.moveDir.right then
+                    if player.moveDir.up ~= player.prevDir.up or player.moveDir.down ~= player.prevDir.down or player.moveDir.left ~= player.prevDir.left or player.moveDir.right ~= player.prevDir.right then
+                        local xPos = math.floor(player.x*1000)/1000
+                        local yPos = math.floor(player.y*1000)/1000
+
+                        self.client:emit("posVerify", {x = xPos, y = yPos})
+                    end
+                end
+
                 player:resetDir()
             end
         end
     end
 
+    --[[
     self.verifyTock = self.verifyTock + dt
     if self.verifyTock > self.verifyTick then
         self.verifyTock = 0
@@ -231,6 +203,7 @@ function game:update(dt)
             end
         end
     end
+    ]]
 
     for k, player in pairs(self.players) do
         if player.peerIndex ~= self.ownPlayerIndex then
