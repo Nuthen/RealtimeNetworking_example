@@ -26,15 +26,7 @@ function game:init()
     end)
 
     self.client:on("newPlayer", function(data)
-        local player = Player:new()
-        player.x = data.x
-        player.y = data.y
-        player.goalX = data.x
-        player.goalY = data.y
-        player.calculatedX = data.x
-        player.calculatedY = data.y
-        player.color = data.color
-        player.peerIndex = data.peerIndex
+        local player = Player:new(data.x, data.y, data.color, data.peerIndex)
         table.insert(self.players, player)
     end)
 
@@ -45,7 +37,6 @@ function game:init()
     self.client:on("sendTime", function(data)
         local sentTime = data
         self.latestServerTime = sentTime
-        -- local difference = self.timer - sentTime -- might work better
         local difference = sentTime - self.previousTime
 
         self.lerpTime = difference
@@ -103,7 +94,7 @@ function game:init()
     self.chatInput.border = {127, 127, 127}
 
     self.timer = 0
-    self.tick = .07
+    self.tick = .1
     self.tock = 0
 
     self.moveInput = {x = 0, y = 0}
@@ -135,7 +126,7 @@ function game:keypressed(key, code)
     if key == 'f2' then
         for k, player in pairs(self.players) do
             if player.peerIndex == self.ownPlayerIndex then
-                player.autono = not player.autono
+                player:setAutono()
             end
         end
     end
@@ -146,24 +137,10 @@ function game:keypressed(key, code)
             end
         end
     end
-
---[[
-    for k, player in pairs(self.players) do
-        if player.peerIndex == self.ownPlayerIndex then
-            player:keypressed(key)
-        end
-    end
-]]
 end
 
 function game:keyreleased(key, code)
-    --[[
-    for k, player in pairs(self.players) do
-        if player.peerIndex == self.ownPlayerIndex then
-            player:keyreleased(key)
-        end
-    end
-    ]]
+
 end
 
 function game:mousereleased(x, y, button)
@@ -183,28 +160,9 @@ function game:update(dt)
         end
     end
 
-    -- perhaps this part should be in the timed loop, I'm just worried about player.lastTime calculated incorrectly if it's not done on the most recent frame
-    for k, player in pairs(self.players) do
-        if player.peerIndex == self.ownPlayerIndex then -- only do an input update for your own player
-            if player.moveDir.up ~= player.prevDir.up then
-                self.client:emit("playerInput", {dir = "up", state = player.moveDir.up, time = player.lastTime.up})
-            end
 
-            if player.moveDir.down ~= player.prevDir.down then
-                self.client:emit("playerInput", {dir = "down", state = player.moveDir.down, time = player.lastTime.down})
-            end
+    -- moving the client:emit code from this location is making it inaccurate, I'm not sure why
 
-            if player.moveDir.left ~= player.prevDir.left then
-                self.client:emit("playerInput", {dir = "left", state = player.moveDir.left, time = player.lastTime.left})
-            end
-
-            if player.moveDir.right ~= player.prevDir.right then
-                self.client:emit("playerInput", {dir = "right", state = player.moveDir.right, time = player.lastTime.right})
-            end
-
-            player:resetDir()
-        end
-    end
 
     self.tock = self.tock + dt
     if self.tock > self.tick then
@@ -212,6 +170,37 @@ function game:update(dt)
         self.client:update(dt)
 
         self.previousTime = self.latestServerTime -- set the previous time to whatever the latest time is, after the client updates
+
+        -- perhaps this part should be in the timed loop, I'm just worried about player.lastTime calculated incorrectly if it's not done on the most recent frame
+        for k, player in pairs(self.players) do
+            if player.peerIndex == self.ownPlayerIndex then -- only do an input update for your own player
+                if player.moveDir.up ~= player.prevDir.up then
+                	local time = player.lastTime.up
+                	time = math.floor(time * 100) / 100
+                    self.client:emit("playerInput", {dir = "up", state = player.moveDir.up, time = time})
+                end
+
+                if player.moveDir.down ~= player.prevDir.down then
+                	local time = player.lastTime.down
+                	time = math.floor(time * 100) / 100
+                    self.client:emit("playerInput", {dir = "down", state = player.moveDir.down, time = time})
+                end
+
+                if player.moveDir.left ~= player.prevDir.left then
+                	local time = player.lastTime.left
+                	time = math.floor(time * 100) / 100
+                    self.client:emit("playerInput", {dir = "left", state = player.moveDir.left, time = time})
+                end
+
+                if player.moveDir.right ~= player.prevDir.right then
+                	local time = player.lastTime.right
+                	time = math.floor(time * 100) / 100
+                    self.client:emit("playerInput", {dir = "right", state = player.moveDir.right, time = time})
+                end
+
+                player:resetDir()
+            end
+        end
     end
 
     for k, player in pairs(self.players) do

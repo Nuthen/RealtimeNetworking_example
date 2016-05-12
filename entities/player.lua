@@ -1,21 +1,32 @@
 Player = class('Player')
 
-function Player:initialize()
-	self.x = math.random(0, 1280)
-	self.y = math.random(0, 720)
+function Player:initialize(x, y, color, peerIndex)
+	self.x = x or math.random(0, 1280)
+	self.y = y or math.random(0, 720)
+
+	-- this is the goal position to be tweened towards
+	-- on the client, it slowly moves it to where the server says it should be
+	-- on the server, it moves towards where it knows it should be to prevent jumpiness
+	self.goalX = self.x
+	self.goalY = self.y
+
+	-- this is the calculated, accurate value for position based on keypress and keyrelease
+	-- it's very accurate, but it's never guarenteed when it will be calculated, because someone could hold a key down forever
+	self.calculatedX = self.x
+	self.calculatedY = self.y
+
+	self.color = color or {math.random(0, 225), math.random(0, 225), math.random(0, 225)}
+
+	-- this is the value of a player in the array of players, as determined by the server
+	-- there is an issue with peerIndex and disconnect
+	self.peerIndex = peerIndex or 0
 
 	self.width = 40
 	self.height = 40
 
-	self.color = {math.random(0, 225), math.random(0, 225), math.random(0, 225)}
-
-	self.peerIndex = 0
-
 	self.speed = 200
 
 	self.hasMoved = false
-	self.goalX = self.x
-	self.goalY = self.y
 	self.lerpTime = 1
 
 	self.showRealPos = false
@@ -23,14 +34,13 @@ function Player:initialize()
 
 	self.circleSize = math.random(5, 15)
 
-	self.prevDir = {up = false, down = false, left = false, right = false}
-	self.moveDir = {up = false, down = false, left = false, right = false}
+	-- boolean for each direction, if you are moving in a given direction or not
+	self.prevDir = {up = false, down = false, left = false, right = false} -- result of the previous frame
+	self.moveDir = {up = false, down = false, left = false, right = false} -- result of the current frame
 
 	self.lastTime = {up = 0, down = 0, left = 0, right = 0}
 	self.moveTime = {up = 0, down = 0, left = 0, right = 0}
 
-	self.calculatedX = self.x
-	self.calculatedY = self.y
 	self.showCalcPos = false
 
 	-- difference in predictions
@@ -41,45 +51,33 @@ function Player:initialize()
 	self.timeDifferenceY = 0
 end
 
+function Player:setAutono()
+	self.autono = not self.autono
+
+	--self.prevDir = {up = false, down = false, left = false, right = false}
+	self.moveDir = {up = false, down = false, left = false, right = false}
+end
+
 -- used by client
 function Player:inputUpdate(dt)
---[[
-	local dx, dy = 0, 0
-
 	if self.autono then
-		dx = math.sin(game.timer*self.circleSize) * dt
-		dy = math.cos(game.timer*self.circleSize) * dt
-	else
-		if love.keyboard.isDown('w', 'up') then
-			dy = -dt
-		elseif love.keyboard.isDown('s', 'down') then
-			dy = dt
-		end
+		--self.prevDir = {up = false, down = false, left = false, right = false}
+		self.moveDir = {up = false, down = false, left = false, right = false}
 
-		if love.keyboard.isDown('a', 'left') then
-			dx = -dt
-		elseif love.keyboard.isDown('d', 'right') then
-			dx = dt
-		end
-	end
+		local dx = math.sin(game.timer * self.circleSize)
+		local dy = math.cos(game.timer * self.circleSize)
 
-	self:move(dx, dy)
-
-	return dx, dy
-]]
-
-	if self.autono then
-		if math.sin(game.timer * self.circleSize) >= 0 then
+		if dx >= .1 then
 			self.moveDir.right = true
 			self.moveDir.left = false
-		else
+		elseif dx <= .1 then
 			self.moveDir.right = false
 			self.moveDir.left = true
 		end
-		if math.cos(game.timer * self.circleSize) >= 0 then
+		if dy >= .1 then
 			self.moveDir.down = true
 			self.moveDir.up = false
-		else
+		elseif dy <= .1 then
 			self.moveDir.down = false
 			self.moveDir.up = true
 		end
@@ -89,30 +87,33 @@ function Player:inputUpdate(dt)
 		if love.keyboard.isDown('a', 'left') then self.moveDir.left = true else self.moveDir.left = false end
 		if love.keyboard.isDown('d', 'right') then self.moveDir.right = true else self.moveDir.right = false end
 
-		if self.moveDir.up ~= self.prevDir.up then
-			local diff = game.timer - self.lastTime.up
-            self.lastTime.up = game.timer
-            --self:moveActual('up', diff)
-        end
-
-        if self.moveDir.down ~= self.prevDir.down then
-			local diff = game.timer - self.lastTime.down
-            self.lastTime.down = game.timer
-            --self:moveActual('down', diff)
-        end
-
-        if self.moveDir.left ~= self.prevDir.left then
-			local diff = game.timer - self.lastTime.left
-			self.lastTime.left = game.timer
-            --self:moveActual('left', diff)
-		end
-
-        if self.moveDir.right ~= self.prevDir.right then
-			local diff = game.timer - self.lastTime.right
-           	self.lastTime.right = game.timer
-            --self:moveActual('right', diff)
-        end
+		
 	end
+
+	-- moved outside so that autonomous movement can utilize it as well
+	if self.moveDir.up ~= self.prevDir.up then
+		local diff = game.timer - self.lastTime.up
+        self.lastTime.up = game.timer
+        --self:moveActual('up', diff)
+    end
+
+    if self.moveDir.down ~= self.prevDir.down then
+		local diff = game.timer - self.lastTime.down
+        self.lastTime.down = game.timer
+        --self:moveActual('down', diff)
+    end
+
+    if self.moveDir.left ~= self.prevDir.left then
+		local diff = game.timer - self.lastTime.left
+		self.lastTime.left = game.timer
+        --self:moveActual('left', diff)
+	end
+
+    if self.moveDir.right ~= self.prevDir.right then
+		local diff = game.timer - self.lastTime.right
+        self.lastTime.right = game.timer
+        --self:moveActual('right', diff)
+    end
 end
 
 -- used by the server
@@ -181,12 +182,14 @@ function Player:moveActual(dir, diff)
 	if dx < -.00001 or dx > .00001 then -- check if it is basically not 0 (floating points can be weird)
 		self.xDiff = self.calculatedX - self.x
 		self.goalX = self.calculatedX
-		self.timeDifferenceX = self.timeDifferenceX + math.abs(self.xDiff) / self.speed
+		self.timeDifferenceX = math.abs(self.xDiff) / self.speed -- perhaps this should not be added to the previous?
+		self.x = self.calculatedX -- this line is iffy
 	end
 	if dy < -.00001 or dy > .00001 then
 		self.yDiff = self.calculatedY - self.y
 		self.goalY = self.calculatedY
-		self.timeDifferenceY = self.timeDifferenceY + math.abs(self.yDiff) / self.speed
+		self.timeDifferenceY = math.abs(self.yDiff) / self.speed
+		self.y = self.calculatedY -- this line is iffy
 	end
 end
 
@@ -197,36 +200,7 @@ function Player:resetDir()
 	self.prevDir.right = self.moveDir.right
 end
 
-function Player:keypressed(key)
-	if key == 'w' or key == 'up' then
-		self.moveDir.up = true
-	end
-	if key == 's' or key == 'down' then
-		self.moveDir.down = true
-	end
-	if key == 'a' or key == 'left' then
-		self.moveDir.left = true
-	end
-	if key == 'd' or key == 'right' then
-		self.moveDir.right = true
-	end
-end
-
-function Player:keyreleased(key)
-	if key == 'w' or key == 'up' then
-		self.moveDir.up = false
-	end
-	if key == 's' or key == 'down' then
-		self.moveDir.down = false
-	end
-	if key == 'a' or key == 'left' then
-		self.moveDir.left = false
-	end
-	if key == 'd' or key == 'right' then
-		self.moveDir.right = false
-	end
-end
-
+-- used by the server
 function Player:move(dx, dy)
 	self.x = self.x + dx * self.speed
 	self.y = self.y + dy * self.speed
@@ -236,6 +210,7 @@ function Player:move(dx, dy)
 	end
 end
 
+-- used by the client to set the interpolation
 function Player:moveTo(x, y, lerp)
 	self.goalX = x
 	self.goalY = y
@@ -244,8 +219,19 @@ end
 
 function Player:moveUpdate(dt)
 	--error(self.lerpTime..' '..(self.x - self.goalX)..' '..self.x..' '..self.goalX)
-	self.x = self.x + (self.goalX - self.x)/self.lerpTime * dt
-	self.y = self.y + (self.goalY - self.y)/self.lerpTime * dt
+	local dx, dy = (self.goalX - self.x)/self.lerpTime * dt, (self.goalY - self.y)/self.lerpTime * dt
+	local velocity = vector(dx, dy)
+	-- why does this make the movement jumpy/choppy? does it ever run the first part? I think I see the issue with it though
+	if velocity:len() >= self.speed * dt then
+		velocity = velocity:normalized() * self.speed * dt
+		dx, dy = velocity:unpack()
+	else
+		dx, dy = dx, dy
+		--error(velocity:len()..' '..self.speed * dt)
+	end
+
+	self.x = self.x + dx
+	self.y = self.y + dy
 end
 
 function Player:movePrediction(dt)
@@ -271,7 +257,8 @@ end
 
 function Player:moveBy(dt)
 	local dx, dy = 0, 0
-	local overprediction = .8
+	--local overprediction = .7 -- this should probably not be used, it was just used for guessing
+	local overprediction = 1
 
 	if self.moveDir.up then
 		dy = dy - self.speed * dt * overprediction
@@ -287,18 +274,26 @@ function Player:moveBy(dt)
 		dx = dx + self.speed * dt * overprediction
 	end
 
+
+	-- the player moves in a very jumpy way. the goal of this part is to smooth that jumpiness
+	-- note that the time is seperate for each axis, I'm not sure if that's correct to do
+	-- for some reason, this makes the "Red box" inaccurate
+	--[[
 	if self.timeDifferenceX > 0 then
-		dx = dx + (self.goalX - self.x - dx)/self.timeDifferenceX * dt
+		dx = dx + (self.goalX - (self.x))/self.timeDifferenceX * dt
 		self.timeDifferenceX = math.max(0, self.timeDifferenceX - dt)
 	end
 
 	if self.timeDifferenceY > 0 then
-		dy = dy + (self.goalY - self.y - dy)/self.timeDifferenceY * dt
+		dy = dy + (self.goalY - (self.y))/self.timeDifferenceY * dt
 		self.timeDifferenceY = math.max(0, self.timeDifferenceY - dt)
 	end
 
-	dx = math.min(dx, self.speed*dt)
-	dy = math.min(dy, self.speed*dt)
+	-- does this help much?
+	--dx = math.min(dx, self.speed*dt)
+	--dy = math.min(dy, self.speed*dt)
+	]]
+	--
 
 	self.x = self.x + dx
 	self.y = self.y + dy

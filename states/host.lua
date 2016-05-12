@@ -59,7 +59,7 @@ function host:init()
     self.timers.userlist = 0
 
     self.timer = 0
-    self.tick = .05
+    self.tick = .1 -- 100 ms
     self.tock = 0
 end
 
