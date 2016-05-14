@@ -75,6 +75,14 @@ end
 function Player:inputUpdate(dt)
     self.velocity.x, self.velocity.y = 0, 0
 
+    if self.autono then
+    	local dx = math.cos(game.timer * self.circleSize)
+		local dy = math.sin(game.timer * self.circleSize)
+
+		self.velocity.x = dx * self.speed
+		self.velocity.y = dy * self.speed
+    end
+
     if love.keyboard.isDown('w', 'up')    then self.velocity.y = -self.speed end
 	if love.keyboard.isDown('s', 'down')  then self.velocity.y =  self.speed end
 	if love.keyboard.isDown('a', 'left')  then self.velocity.x = -self.speed end
