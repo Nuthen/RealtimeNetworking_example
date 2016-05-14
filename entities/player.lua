@@ -192,6 +192,11 @@ function Player:moveUpdate(dt)
 		dx, dy = velocity:unpack()
 	end
 
+	local vel2 = vector(self.goalX - self.x, self.goalY - self.y)
+	if vel2:len() < 3 then
+		dx, dy = vel2.x, vel2.y
+	end
+
 	self.x = self.x + dx
 	self.y = self.y + dy
 end
