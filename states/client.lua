@@ -137,7 +137,7 @@ function game:update(dt)
 
     -- moving the client:emit code from this location is making it inaccurate, I'm not sure why
 
-    self.additionalTime = self.additionalTime + dt -- this doesn't provide much noticable difference but probably worth keeping in
+    --self.additionalTime = self.additionalTime + dt -- this doesn't provide much noticable difference but probably worth keeping in
 
     self.tock = self.tock + dt
     if self.tock >= self.tick then
