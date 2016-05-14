@@ -264,8 +264,25 @@ function game:draw()
 
 
     local sentData = self.client.host:total_sent_data()
-    love.graphics.print('Sent Data: '.. sentData .. ' bytes', 5, 120)
+    sentDataSec = sentData/self.timer
+    sentData = math.floor(sentData/1000)*1000
+    sentDataSec = math.floor(sentDataSec/1000)*1000
+    sentData = sentData / 1000
+    sentData = sentData / 1000
+    sentDataSec = sentDataSec / 1000
+
+
+    love.graphics.print('Sent Data: '.. sentData .. ' MB | ' .. sentDataSec .. ' KB/s', 5, 420)
+
 
     local receivedData = self.client.host:total_received_data()
-    love.graphics.print('Received Data: '.. receivedData .. ' bytes', 5, 150)
+    receivedDataSec = receivedData/self.timer
+    receivedData = math.floor(receivedData/1000)*1000
+    receivedDataSec = math.floor(sentDataSec*1000)/1000
+    receivedData = receivedData / 1000
+    receivedData = receivedData / 1000
+    receivedDataSec = receivedDataSec / 1000
+
+
+    love.graphics.print('Received Data: '.. receivedData .. ' MB | ' .. receivedDataSec .. ' KB/s', 5, 450)
 end
