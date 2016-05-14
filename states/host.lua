@@ -142,7 +142,7 @@ function host:update(dt)
         end
 
         for k, player in pairs(self.players) do
-            if player.hasMoved then
+            --if player.hasMoved then
                 player.hasMoved = false
 
                 local xPos = math.floor(player.x*1000)/1000
@@ -150,7 +150,7 @@ function host:update(dt)
 
                 local timeRounded = math.floor(self.timer * 10000) / 10000
                 self.server:emitToAll("movePlayer", {x = xPos, y = yPos, peerIndex = player.peerIndex, time = timeRounded})
-            end
+            --end
         end
     end
 end
