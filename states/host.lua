@@ -62,11 +62,27 @@ function host:init()
         self.server:log("posVerify", data.x..' '.. data.y)
     end)
 
+    self.server:on("entityState", function(data, peer)
+        local index = peer.server:index()
+        local player = self.players[index]
+        player.x = data.x
+        player.y = data.y
+        player.velocity.x = data.vx
+        player.velocity.y = data.vy
+
+        --local xPos = math.floor(player.x*1000)/1000
+        --local yPos = math.floor(player.y*1000)/1000
+        --local timeRounded = math.floor(self.timer * 10000) / 10000
+        --self.server:emitToAll("movePlayer", {x = xPos, y = yPos, peerIndex = player.peerIndex, time = timeRounded})
+
+        self.server:log("entityState", data.x ..' '.. data.y ..' '.. data.vx ..' '.. data.vy)
+    end)
+
     self.timers = {}
     self.timers.userlist = 0
 
     self.timer = 0
-    self.tick = 1/60
+    self.tick = 1/30
     self.tock = 0
 
     self.readCount = 2
@@ -104,17 +120,14 @@ function host:update(dt)
 
     self.tock = self.tock + dt
 
+    self.server:update(dt)
 
     for k, player in pairs(self.players) do
         player:moveBy(dt)
     end
 
-    if self.tock > self.tick then
+    if self.tock >= self.tick then
         self.tock = 0
-
-        for i = 1, self.readCount do
-            self.server:update(dt)
-        end
 
         self.timers.userlist = self.timers.userlist + dt
 
@@ -135,9 +148,6 @@ function host:update(dt)
                 local xPos = math.floor(player.x*1000)/1000
                 local yPos = math.floor(player.y*1000)/1000
 
-                local xPosCalc = math.floor(player.calculatedX*1000)/1000
-                local yPosCalc = math.floor(player.calculatedY*1000)/1000
-
                 local timeRounded = math.floor(self.timer * 10000) / 10000
                 self.server:emitToAll("movePlayer", {x = xPos, y = yPos, peerIndex = player.peerIndex, time = timeRounded})
             end
@@ -149,7 +159,7 @@ function host:draw()
     if DEBUG then
     	love.graphics.setFont(font[16])
     	love.graphics.print('FPS: '..love.timer.getFPS(), 5, 5)
-        love.graphics.print("Memory usage: " .. collectgarbage("count")/1000 .. "MB", 5, 25)
+        love.graphics.print("Memory usage: " .. collectgarbage("count"), 5, 25)
     end
 
     love.graphics.print("Connected users:", 5, 40)
@@ -165,7 +175,6 @@ function host:draw()
     end
 
     for i, peer in ipairs(self.server.peers) do
-        --error(peer)
         local ping = peer:round_trip_time() or -1
         love.graphics.print('Ping: '..ping, 140, 40+25*i)
     end

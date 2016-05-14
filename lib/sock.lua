@@ -166,12 +166,14 @@ function sock.Client:update(dt)
     end
 end
 
-function sock.Client:emit(name, data)
+function sock.Client:emit(name, data, flag)
     local message = {
         name = name,
         data = data,
     }
     local serializedMessage = nil
+
+    flag = flag or "reliable"
 
     -- 'Data' = binary data class in Love
     if type(message.data) == "userdata" then
@@ -180,7 +182,7 @@ function sock.Client:emit(name, data)
         serializedMessage = bitser.dumps(message)
     end
 
-    self.server:send(serializedMessage)
+    self.server:send(serializedMessage, 0, flag)
 end
 
 function sock.Client:on(name, callback)

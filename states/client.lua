@@ -132,22 +132,21 @@ function game:update(dt)
         end
     end
 
+    self.client:update(dt)
+
 
     -- moving the client:emit code from this location is making it inaccurate, I'm not sure why
 
     self.additionalTime = self.additionalTime + dt
 
     self.tock = self.tock + dt
-    if self.tock > self.tick then
+    if self.tock >= self.tick then
         self.tock = 0
-
-        for i = 1, self.readCount do
-            self.client:update(dt)
-        end
 
         self.previousTime = self.latestServerTime -- set the previous time to whatever the latest time is, after the client updates
         self.additionalTime = 0
 
+        --[[
         -- perhaps this part should be in the timed loop, I'm just worried about player.lastTime calculated incorrectly if it's not done on the most recent frame
         for k, player in pairs(self.players) do
             if player.peerIndex == self.ownPlayerIndex then -- only do an input update for your own player
@@ -185,6 +184,23 @@ function game:update(dt)
                 end
 
                 player:resetDir()
+            end
+        end
+        ]]
+
+        for k, player in pairs(self.players) do
+            if player.peerIndex == self.ownPlayerIndex then
+                local xPos = math.floor(player.x*1000)/1000
+                local yPos = math.floor(player.y*1000)/1000
+                local xVel = math.floor(player.velocity.x*1000)/1000
+                local yVel = math.floor(player.velocity.y*1000)/1000
+
+                --if (xVel ~= player.prevXVel or yVel ~= player.prevYVel) then
+                    self.client:emit("entityState", {x = xPos, y = yPos, vx = xVel, vy = yVel}, "unreliable")
+                --end
+
+                player.prevXVel = xVel
+                player.prevYVel = yVel
             end
         end
     end
@@ -242,4 +258,14 @@ function game:draw()
         local player = self.players[i]
         love.graphics.print('#'..player.peerIndex, 100, 40+25*i)
     end
+
+    local ping = self.client.server:round_trip_time() or -1
+    love.graphics.print('Ping: '.. ping .. 'ms', 140, 40+25)
+
+
+    local sentData = self.client.host:total_sent_data()
+    love.graphics.print('Sent Data: '.. sentData .. ' bytes', 5, 120)
+
+    local receivedData = self.client.host:total_received_data()
+    love.graphics.print('Received Data: '.. receivedData .. ' bytes', 5, 150)
 end

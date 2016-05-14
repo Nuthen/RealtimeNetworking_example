@@ -4,6 +4,8 @@ function Player:initialize(x, y, color, peerIndex)
 	self.x = x or math.random(0, love.graphics.getWidth())
 	self.y = y or math.random(0, love.graphics.getHeight())
 
+	self.velocity = vector(0, 0)
+
 	-- this is the goal position to be tweened towards
 	-- on the client, it slowly moves it to where the server says it should be
 	-- on the server, it moves towards where it knows it should be to prevent jumpiness
@@ -52,6 +54,9 @@ function Player:initialize(x, y, color, peerIndex)
 	self.timeBehind = 0
 	self.timeDifferenceX = 0
 	self.timeDifferenceY = 0
+
+	self.prevXVel = 0
+    self.prevYVel = 0
 end
 
 function Player:setAutono()
@@ -68,60 +73,12 @@ end
 
 -- used by client
 function Player:inputUpdate(dt)
-	if self.autono then
-		--self.prevDir = {up = false, down = false, left = false, right = false}
-		self.moveDir = {up = false, down = false, left = false, right = false}
+    self.velocity.x, self.velocity.y = 0, 0
 
-		local dx = math.sin(game.timer * self.circleSize)
-		local dy = math.cos(game.timer * self.circleSize)
-
-		if dx > 0 then
-			self.moveDir.right = true
-			self.moveDir.left = false
-		elseif dx < 0 then
-			self.moveDir.right = false
-			self.moveDir.left = true
-		end
-		if dy > 0 then
-			self.moveDir.down = true
-			self.moveDir.up = false
-		elseif dy < 0 then
-			self.moveDir.down = false
-			self.moveDir.up = true
-		end
-	else
-		if love.keyboard.isDown('w', 'up') then self.moveDir.up = true else self.moveDir.up = false end
-		if love.keyboard.isDown('s', 'down') then self.moveDir.down = true else self.moveDir.down = false end
-		if love.keyboard.isDown('a', 'left') then self.moveDir.left = true else self.moveDir.left = false end
-		if love.keyboard.isDown('d', 'right') then self.moveDir.right = true else self.moveDir.right = false end
-
-		
-	end
-
-	-- moved outside so that autonomous movement can utilize it as well
-	if self.moveDir.up ~= self.prevDir.up then
-		local diff = game.timer - self.lastTime.up
-        self.lastTime.up = game.timer
-        --self:moveActual('up', diff)
-    end
-
-    if self.moveDir.down ~= self.prevDir.down then
-		local diff = game.timer - self.lastTime.down
-        self.lastTime.down = game.timer
-        --self:moveActual('down', diff)
-    end
-
-    if self.moveDir.left ~= self.prevDir.left then
-		local diff = game.timer - self.lastTime.left
-		self.lastTime.left = game.timer
-        --self:moveActual('left', diff)
-	end
-
-    if self.moveDir.right ~= self.prevDir.right then
-		local diff = game.timer - self.lastTime.right
-        self.lastTime.right = game.timer
-        --self:moveActual('right', diff)
-    end
+    if love.keyboard.isDown('w', 'up')    then self.velocity.y = -self.speed end
+	if love.keyboard.isDown('s', 'down')  then self.velocity.y =  self.speed end
+	if love.keyboard.isDown('a', 'left')  then self.velocity.x = -self.speed end
+	if love.keyboard.isDown('d', 'right') then self.velocity.x =  self.speed end
 end
 
 -- used by the server
@@ -233,71 +190,16 @@ end
 
 -- used by the client
 function Player:movePrediction(dt)
-	local dx, dy = 0, 0
-
-	if self.moveDir.up then
-		dy = dy - self.speed * dt
-	end
-	if self.moveDir.down then
-		dy = dy + self.speed * dt
-	end
-
-	if self.moveDir.left then
-		dx = dx - self.speed * dt
-	end
-	if self.moveDir.right then
-		dx = dx + self.speed * dt
-	end
-
-	self.x = self.x + dx
-	self.y = self.y + dy
+	self.x = self.x + self.velocity.x * dt
+	self.y = self.y + self.velocity.y * dt
 end
 
--- used by the server
+-- used by the server to predict player movement - dead-reckoning
 function Player:moveBy(dt)
-	local dx, dy = 0, 0
-	--local overprediction = .7 -- this should probably not be used, it was just used for guessing
-	local overprediction = 1
+	self.x = self.x + self.velocity.x * dt
+	self.y = self.y + self.velocity.y * dt
 
-	if self.moveDir.up then
-		dy = dy - self.speed * dt * overprediction
-	end
-	if self.moveDir.down then
-		dy = dy + self.speed * dt * overprediction
-	end
-
-	if self.moveDir.left then
-		dx = dx - self.speed * dt * overprediction
-	end
-	if self.moveDir.right then
-		dx = dx + self.speed * dt * overprediction
-	end
-
-
-	-- the player moves in a very jumpy way. the goal of this part is to smooth that jumpiness
-	-- note that the time is seperate for each axis, I'm not sure if that's correct to do
-	-- for some reason, this makes the "Red box" inaccurate
-	--[[
-	if self.timeDifferenceX > 0 then
-		dx = dx + (self.goalX - (self.x))/self.timeDifferenceX * dt
-		self.timeDifferenceX = math.max(0, self.timeDifferenceX - dt)
-	end
-
-	if self.timeDifferenceY > 0 then
-		dy = dy + (self.goalY - (self.y))/self.timeDifferenceY * dt
-		self.timeDifferenceY = math.max(0, self.timeDifferenceY - dt)
-	end
-
-	-- does this help much?
-	--dx = math.min(dx, self.speed*dt)
-	--dy = math.min(dy, self.speed*dt)
-	]]
-	--
-
-	self.x = self.x + dx
-	self.y = self.y + dy
-
-	if dx ~= 0 or dy ~= 0 then
+	if self.velocity.x ~= 0 or self.velocity.y ~= 0 then
 		self.hasMoved = true
 	end
 end
