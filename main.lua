@@ -100,7 +100,7 @@ function love.resize(w, h)
 end
 
 function love.update(dt)
-
+    flux.update(dt)
 end
 
 function love.draw()

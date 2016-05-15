@@ -1,11 +1,9 @@
 host = {}
-DEBUG = true
 
 function host:init()
     self.players = {}
 
-	--self.server = socket.Server:new("localhost", 22122)
-    self.server = socket.Server:new("*", 22122)
+    self.server = socket.Server:new("*", 22122, 0)
     print('--- server ---')
     print('running on '..self.server.hostname..":"..self.server.port)
 
@@ -15,8 +13,6 @@ function host:init()
         self:sendUserlist()
         self:sendAllPlayers(peer)
         self:addPlayer(peer)
-        local peerIndex = peer.server:index()
-        peer:emit("index", peerIndex)
     end)
 
     self.server:on("identify", function(username, peer)
@@ -31,49 +27,31 @@ function host:init()
                 return
             end
         end
-        self.peerNames[peer] = username
+
+        local connectId = peer.connectId
+        self.peerNames[connectId] = username
         self:sendUserlist()
     end)
 
     self.server:on("disconnect", function(data, peer)
-        self.peerNames[peer] = nil
-        self.peerNames[peer] = "disconnected user"
+        local connectId = peer.connectId
+        self.peerNames[connectId] = nil
+        self.peerNames[connectId] = "disconnected user"
         self:sendUserlist()
-    end)
-
-    self.server:on("playerInput", function(data, peer)
-        local index = peer.server:index()
-        self.players[index]:setInput(data.dir, data.state, data.time)
-
-        self.server:log("playerInput", data.dir..' '.. (data.state and "true" or "false"))
-    end)
-
-    self.server:on("posVerify", function(data, peer)
-        local index = peer.server:index()
-        local player = self.players[index]
-        player.x = data.x
-        player.y = data.y
-
-        local xPos = math.floor(player.x*1000)/1000
-        local yPos = math.floor(player.y*1000)/1000
-        local timeRounded = math.floor(self.timer * 10000) / 10000
-        self.server:emitToAll("movePlayer", {x = xPos, y = yPos, peerIndex = player.peerIndex, time = timeRounded})
-
-        self.server:log("posVerify", data.x..' '.. data.y)
     end)
 
     self.server:on("entityState", function(data, peer)
         local index = peer.server:index()
         local player = self.players[index]
-        player.x = data.x
-        player.y = data.y
-        player.velocity.x = data.vx
-        player.velocity.y = data.vy
+        player.position.x = player.prevPosition.x
+        player.position.y = player.prevPosition.y
+        player.prevPosition.x = data.x
+        player.prevPosition.y = data.y
 
-        --local xPos = math.floor(player.x*1000)/1000
-        --local yPos = math.floor(player.y*1000)/1000
-        --local timeRounded = math.floor(self.timer * 10000) / 10000
-        --self.server:emitToAll("movePlayer", {x = xPos, y = yPos, peerIndex = player.peerIndex, time = timeRounded})
+        player.velocity.x = player.prevVelocity.x
+        player.velocity.y = player.prevVelocity.y
+        player.prevVelocity.x = data.vx
+        player.prevVelocity.y = data.vy
 
         self.server:log("entityState", data.x ..' '.. data.y ..' '.. data.vx ..' '.. data.vy)
     end)
@@ -82,7 +60,7 @@ function host:init()
     self.timers.userlist = 0
 
     self.timer = 0
-    self.tick = 1/30
+    self.tick = 1/30 -- server sends 30 state packets per second
     self.tock = 0
 
     self.readCount = 2
@@ -94,12 +72,15 @@ function host:addPlayer(peer)
 
     table.insert(self.players, player)
 
-    self.server:emitToAll("newPlayer", {x = player.x, y = player.y, color = player.color, peerIndex = player.peerIndex})
+    self.server:emitToAll("newPlayer", {x = player.position.x, y = player.position.y, color = player.color, peerIndex = player.peerIndex})
+
+    local peerIndex = peer.server:index()
+    peer:emit("index", peerIndex)
 end
 
 function host:sendAllPlayers(peer)
     for k, player in pairs(self.players) do
-        peer:emit("newPlayer", {x = player.x, y = player.y, color = player.color, peerIndex = player.peerIndex})
+        peer:emit("newPlayer", {x = player.position.x, y = player.position.y, color = player.color, peerIndex = player.peerIndex})
     end
 end
 
@@ -117,14 +98,13 @@ end
 
 function host:update(dt)
     self.timer = self.timer + dt
-
     self.tock = self.tock + dt
 
     self.server:update(dt)
 
-    for k, player in pairs(self.players) do
-        player:moveBy(dt)
-    end
+    --for k, player in pairs(self.players) do
+        --player:movePrediction(dt)
+    --end
 
     if self.tock >= self.tick then
         self.tock = 0
@@ -142,25 +122,22 @@ function host:update(dt)
         end
 
         for k, player in pairs(self.players) do
-            --if player.hasMoved then
-                player.hasMoved = false
+            local xPos = math.floor(player.position.x*1000)/1000
+            local yPos = math.floor(player.position.y*1000)/1000
 
-                local xPos = math.floor(player.x*1000)/1000
-                local yPos = math.floor(player.y*1000)/1000
-
-                local timeRounded = math.floor(self.timer * 10000) / 10000
-                self.server:emitToAll("movePlayer", {x = xPos, y = yPos, peerIndex = player.peerIndex, time = timeRounded})
-            --end
+            self.server:emitToAll("movePlayer", {x = xPos, y = yPos, peerIndex = player.peerIndex})
         end
     end
 end
 
 function host:draw()
-    if DEBUG then
-    	love.graphics.setFont(font[16])
-    	love.graphics.print('FPS: '..love.timer.getFPS(), 5, 5)
-        love.graphics.print("Memory usage: " .. collectgarbage("count"), 5, 25)
+    for k, player in pairs(self.players) do
+        player:draw()
     end
+
+    love.graphics.setFont(font[16])
+    love.graphics.print('FPS: '..love.timer.getFPS(), 5, 5)
+    love.graphics.print("Memory usage: " .. collectgarbage("count"), 5, 25)
 
     love.graphics.print("Connected users:", 5, 40)
     local j = 1
@@ -177,10 +154,5 @@ function host:draw()
     for i, peer in ipairs(self.server.peers) do
         local ping = peer:round_trip_time() or -1
         love.graphics.print('Ping: '..ping, 140, 40+25*i)
-    end
-
-    -- debug
-    for k, player in pairs(self.players) do
-        player:draw()
     end
 end

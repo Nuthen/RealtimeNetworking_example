@@ -35,17 +35,16 @@ function game:init()
     end)
 
     self.client:on("movePlayer", function(data)
-        local sentTime = data.time
-        self.latestServerTime = sentTime
-        local difference = sentTime - self.previousTime + self.additionalTime
-
-        self.lerpTime = difference
-
-        local pingTime = self.client.server:last_round_trip_time() -- not sure where to use this
-
         for k, player in pairs(self.players) do
             if player.peerIndex == data.peerIndex then
-                player:moveTo(data.x, data.y, self.lerpTime)
+                if player.peerIndex ~= self.ownPlayerIndex then
+                    player:setTween(data.x, data.y)
+                else
+                    --player.position.x = data.x
+                    --player.position.y = data.y
+                    player.goalX = data.x
+                    player.goalY = data.y
+                end
             end
         end
     end)
@@ -59,19 +58,7 @@ function game:init()
     self.tick = 1/60
     self.tock = 0
 
-    self.verifyTick = 10000
-    self.verifyTock = 0
-
-    self.moveInput = {x = 0, y = 0}
-
-    self.lerpTime = 1
-    self.previousTime = 0
-    self.latestServerTime = 0
-
-    self.additionalTime = 0
-
-    self.lastVerifyX = 0
-    self.lastVerifyY = 0
+    self.showRealPos = false
 
     self.readCount = 2
 end
@@ -84,28 +71,19 @@ function game:enter(prev, hostname, username)
 end
 
 function game:quit()
-    -- if game is not disconnected, the server won't remove it until the
-    -- game timeouts
+    -- if client is not disconnected, the server won't remove it until the game closes
     self.client:disconnect()
 end
 
 function game:keypressed(key, code)
     if key == 'f1' then
-        for k, player in pairs(self.players) do
-            player.showRealPos = not player.showRealPos
-        end
+        self.showRealPos = not self.showRealPos
     end
+
     if key == 'f2' then
         for k, player in pairs(self.players) do
             if player.peerIndex == self.ownPlayerIndex then
                 player:setAutono()
-            end
-        end
-    end
-    if key == 'f3' then
-        for k, player in pairs(self.players) do
-            if player.peerIndex == self.ownPlayerIndex then
-                player.showCalcPos = not player.showCalcPos
             end
         end
     end
@@ -120,10 +98,12 @@ function game:mousereleased(x, y, button)
 end
 
 function game:textinput(text)
+
 end
 
 function game:update(dt)
     self.timer = self.timer + dt
+    self.tock = self.tock + dt
     
     for k, player in pairs(self.players) do
         if player.peerIndex == self.ownPlayerIndex then -- only do an input update for your own player
@@ -134,101 +114,18 @@ function game:update(dt)
 
     self.client:update(dt)
 
-
-    -- moving the client:emit code from this location is making it inaccurate, I'm not sure why
-
-    --self.additionalTime = self.additionalTime + dt -- this doesn't provide much noticable difference but probably worth keeping in
-
-    self.tock = self.tock + dt
     if self.tock >= self.tick then
         self.tock = 0
 
-        self.previousTime = self.latestServerTime -- set the previous time to whatever the latest time is, after the client updates
-        self.additionalTime = 0
-
-        --[[
-        -- perhaps this part should be in the timed loop, I'm just worried about player.lastTime calculated incorrectly if it's not done on the most recent frame
-        for k, player in pairs(self.players) do
-            if player.peerIndex == self.ownPlayerIndex then -- only do an input update for your own player
-                if player.moveDir.up ~= player.prevDir.up then
-                	local time = player.lastTime.up
-                	time = math.floor(time * 10000) / 10000
-                    self.client:emit("playerInput", {dir = "up", state = player.moveDir.up, time = time})
-                end
-
-                if player.moveDir.down ~= player.prevDir.down then
-                	local time = player.lastTime.down
-                	time = math.floor(time * 10000) / 10000
-                    self.client:emit("playerInput", {dir = "down", state = player.moveDir.down, time = time})
-                end
-
-                if player.moveDir.left ~= player.prevDir.left then
-                	local time = player.lastTime.left
-                	time = math.floor(time * 10000) / 10000
-                    self.client:emit("playerInput", {dir = "left", state = player.moveDir.left, time = time})
-                end
-
-                if player.moveDir.right ~= player.prevDir.right then
-                	local time = player.lastTime.right
-                	time = math.floor(time * 10000) / 10000
-                    self.client:emit("playerInput", {dir = "right", state = player.moveDir.right, time = time})
-                end
-
-                if not player.moveDir.up and not player.moveDir.down and not player.moveDir.left and not player.moveDir.right then
-                    if player.moveDir.up ~= player.prevDir.up or player.moveDir.down ~= player.prevDir.down or player.moveDir.left ~= player.prevDir.left or player.moveDir.right ~= player.prevDir.right then
-                        local xPos = math.floor(player.x*1000)/1000
-                        local yPos = math.floor(player.y*1000)/1000
-
-                        self.client:emit("posVerify", {x = xPos, y = yPos})
-                    end
-                end
-
-                player:resetDir()
-            end
-        end
-        ]]
-
         for k, player in pairs(self.players) do
             if player.peerIndex == self.ownPlayerIndex then
-                local xPos = math.floor(player.x*1000)/1000
-                local yPos = math.floor(player.y*1000)/1000
+                local xPos = math.floor(player.position.x*1000)/1000
+                local yPos = math.floor(player.position.y*1000)/1000
                 local xVel = math.floor(player.velocity.x*1000)/1000
                 local yVel = math.floor(player.velocity.y*1000)/1000
 
-                --if (xVel ~= player.prevXVel or yVel ~= player.prevYVel) then
-                    self.client:emit("entityState", {x = xPos, y = yPos, vx = xVel, vy = yVel}, "unreliable")
-                --end
-
-                player.prevXVel = xVel
-                player.prevYVel = yVel
+                self.client:emit("entityState", {x = xPos, y = yPos, vx = xVel, vy = yVel}, "unreliable")
             end
-        end
-    end
-
-    --[[
-    self.verifyTock = self.verifyTock + dt
-    if self.verifyTock > self.verifyTick then
-        self.verifyTock = 0
-
-        for k, player in pairs(self.players) do
-            if player.peerIndex == self.ownPlayerIndex then -- only do an input update for your own player
-                local xPos = math.floor(player.x*1000)/1000
-                local yPos = math.floor(player.y*1000)/1000
-
-                if self.lastVerifyX ~= xPos or self.lastVerifyY ~= yPos then
-                    self.client:emit("posVerify", {x = xPos, y = yPos})
-                end
-
-                self.lastVerifyX = xPos
-                self.lastVerifyY = yPos
-            end
-        end
-    end
-    ]]
-
-    for k, player in pairs(self.players) do
-        if player.peerIndex ~= self.ownPlayerIndex then
-            player:moveUpdate(dt)
         end
     end
 end
@@ -236,53 +133,44 @@ end
 function game:draw()
     love.graphics.setColor(255, 255, 255)
 
+    for k, player in pairs(self.players) do
+        player:draw(self.showRealPos)
+    end
+
     love.graphics.print('FPS: '..love.timer.getFPS(), 300, 5)
 
-    love.graphics.setFont(fontBold[24])
+    love.graphics.setFont(font[20])
     love.graphics.print("client : " .. self.username, 5, 5)
 
-    love.graphics.setFont(font[20])
     love.graphics.print("You are currently playing with:", 5, 40)
 
     for i, user in ipairs(self.users) do
-        love.graphics.print(i .. ", " .. user, 5, 40+25*i)
-    end
-
-    for k, player in pairs(self.players) do
-        player:draw()
+        love.graphics.print(i .. ". " .. user, 5, 40+25*i)
     end
 
     love.graphics.print("You are #"..self.ownPlayerIndex, 5, 500)
 
+    -- print each player's name
     for i = 1, #self.players do
         local player = self.players[i]
         love.graphics.print('#'..player.peerIndex, 100, 40+25*i)
     end
 
+    -- print the ping
     local ping = self.client.server:round_trip_time() or -1
     love.graphics.print('Ping: '.. ping .. 'ms', 140, 40+25)
 
-
+    -- print the amount of data sent
     local sentData = self.client.host:total_sent_data()
     sentDataSec = sentData/self.timer
-    sentData = math.floor(sentData/1000)*1000
-    sentDataSec = math.floor(sentDataSec/1000)*1000
-    sentData = sentData / 1000
-    sentData = sentData / 1000
-    sentDataSec = sentDataSec / 1000
-
-
+    sentData = math.floor(sentData/1000) / 1000 -- MB
+    sentDataSec = math.floor(sentDataSec) / 1000 -- KB/s
     love.graphics.print('Sent Data: '.. sentData .. ' MB | ' .. sentDataSec .. ' KB/s', 5, 420)
 
-
+    -- print the amount of data received
     local receivedData = self.client.host:total_received_data()
     receivedDataSec = receivedData/self.timer
-    receivedData = math.floor(receivedData/1000)*1000
-    receivedDataSec = math.floor(sentDataSec*1000)/1000
-    receivedData = receivedData / 1000
-    receivedData = receivedData / 1000
-    receivedDataSec = receivedDataSec / 1000
-
-
+    receivedData = math.floor(receivedData/1000) / 1000 -- converted to MB and rounded some
+    receivedDataSec = math.floor(sentDataSec) / 1000 -- should be in KB/s
     love.graphics.print('Received Data: '.. receivedData .. ' MB | ' .. receivedDataSec .. ' KB/s', 5, 450)
 end

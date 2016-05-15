@@ -4,11 +4,11 @@ require "enet"
 
 sock.Server = class("Server")
 
-function sock.Server:initialize(hostname, port)
+function sock.Server:initialize(hostname, port, timeout)
     self.hostname = hostname or "localhost"
     self.port = port or 22122
     self.host = enet.host_create(hostname .. ":" .. port)
-    self.timeout = 0 -- 100
+    self.timeout = timeout or 100
 
     if not self.host then
         error("Failed to create the host. Is there another server running on :"..self.port.."?")
@@ -18,6 +18,16 @@ function sock.Server:initialize(hostname, port)
     self.triggers = {}
     -- active peer list
     self.peers = {}
+    -- similar to active peer list, except this is a list of sock.Client instances
+    self.clients = {}
+end
+
+function sock.Server:getClient(peer)
+    for i, client in pairs(self.clients) do
+        if peer == client.server then
+            return client
+        end
+    end
 end
 
 function sock.Server:update(dt)
@@ -25,10 +35,12 @@ function sock.Server:update(dt)
     
     if event then
         if event.type == "connect" then
+            local eventClient = sock.Client:new(event.peer)
             table.insert(self.peers, event.peer)
-            self:_activateTriggers("connect", event.data, sock.Client:new(event.peer))
+            table.insert(self.clients, eventClient)
+            self:_activateTriggers("connect", event.data, eventClient)
             self:log(event.type, tostring(event.peer) .. " connected")
-        
+         
         elseif event.type == "disconnect" then
             -- remove from the active peer list
             for i, peer in pairs(self.peers) do
@@ -36,12 +48,19 @@ function sock.Server:update(dt)
                     table.remove(self.peers, i)
                 end
             end
-            self:_activateTriggers("disconnect", event.data, sock.Client:new(event.peer))
+            local eventClient = self:getClient(event.peer)
+            for i, client in pairs(self.clients) do
+                if client == eventClient then
+                    table.remove(self.clients, i)
+                end
+            end
+            self:_activateTriggers("disconnect", event.data, eventClient)
             self:log(event.type, tostring(event.peer) .. " disconnected")
         
         elseif event.type == "receive" then
             local message = bitser.loads(event.data)
-            self:_activateTriggers(message.name, message.data, sock.Client:new(event.peer))
+            local eventClient = self:getClient(event.peer)
+            self:_activateTriggers(message.name, message.data, eventClient)
             self:log(event.type, message.data)
         end
     end
@@ -128,6 +147,8 @@ function sock.Client:initialize(serverOrHostname, port, deferConnect)
         end
     else
         self.server = serverOrHostname
+        self.connectId = self.server:connect_id()
+        assert(self.connectId ~= 0)
     end
 
     self.timeout = 0
@@ -137,10 +158,12 @@ end
 
 function sock.Client:connect()
     self.server = self.host:connect(self.hostname .. ":" .. self.port)
+    self.connectId = self.server:connect_id()
 end
 
-function sock.Client:disconnect()
-    self.server:disconnect()
+function sock.Client:disconnect(code)
+    code = code or 0
+    self.server:disconnect_later(code)
     if self.host then
         self.host:flush()
     end
@@ -172,7 +195,7 @@ function sock.Client:emit(name, data, flag)
         data = data,
     }
     local serializedMessage = nil
-
+    
     flag = flag or "reliable"
 
     -- 'Data' = binary data class in Love
