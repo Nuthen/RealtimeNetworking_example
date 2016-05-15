@@ -28,21 +28,21 @@ function host:init()
             end
         end
 
-        local connectId = peer.connectId
+        local connectId = peer.server:index()-- self.server:getClient(peer).connectId
         self.peerNames[connectId] = username
         self:sendUserlist()
     end)
 
     self.server:on("disconnect", function(data, peer)
-        local connectId = peer.connectId
+        local connectId = peer.server:index() -- self.server:getClient(peer).connectId
         self.peerNames[connectId] = nil
         self.peerNames[connectId] = "disconnected user"
         self:sendUserlist()
     end)
 
     self.server:on("entityState", function(data, peer)
-        local index = peer.server:index()
-        local player = self.players[index]
+        local connectId = peer.server:index() -- self.server:getClient(peer).connectId
+        local player = self.players[connectId]
         player.position.x = player.prevPosition.x
         player.position.y = player.prevPosition.y
         player.prevPosition.x = data.x
@@ -67,20 +67,19 @@ function host:init()
 end
 
 function host:addPlayer(peer)
+    local connectId = peer.server:index() -- self.server:getClient(peer).connectId
     local player = Player:new()
-    player.peerIndex = peer.server:index()
 
-    table.insert(self.players, player)
+    table.insert(self.players, connectId, player) -- changed here to debug
 
-    self.server:emitToAll("newPlayer", {x = player.position.x, y = player.position.y, color = player.color, peerIndex = player.peerIndex})
+    self.server:emitToAll("newPlayer", {x = player.position.x, y = player.position.y, color = player.color, index = connectId}) -- changed here to debug
 
-    local peerIndex = peer.server:index()
-    peer:emit("index", peerIndex)
+    peer:emit("index", peer.server:index()) -- changed here to debug
 end
 
 function host:sendAllPlayers(peer)
     for k, player in pairs(self.players) do
-        peer:emit("newPlayer", {x = player.position.x, y = player.position.y, color = player.color, peerIndex = player.peerIndex})
+        peer:emit("newPlayer", {x = player.position.x, y = player.position.y, color = player.color, index = k})
     end
 end
 
@@ -90,7 +89,7 @@ end
 
 function host:sendUserlist()
     local userlist = {}
-    for i, name in pairs(self.peerNames) do
+    for k, name in pairs(self.peerNames) do
         table.insert(userlist, name)
     end
     self.server:emitToAll("userlist", userlist) 
@@ -114,7 +113,7 @@ function host:update(dt)
         if self.timers.userlist > 5 then
             self.timers.userlist = 0
 
-            for i, peer in pairs(self.server.peers) do
+            for k, peer in pairs(self.server.peers) do
                 if peer:state() == "disconnected" then
                     self.peerNames[peer] = nil
                 end
@@ -125,7 +124,7 @@ function host:update(dt)
             local xPos = math.floor(player.position.x*1000)/1000
             local yPos = math.floor(player.position.y*1000)/1000
 
-            self.server:emitToAll("movePlayer", {x = xPos, y = yPos, peerIndex = player.peerIndex})
+            self.server:emitToAll("movePlayer", {x = xPos, y = yPos, index = k})
         end
     end
 end
@@ -146,9 +145,10 @@ function host:draw()
         j = j + 1
     end
 
-    for i = 1, #self.players do
-        local player = self.players[i]
-        love.graphics.print('#'..player.peerIndex, 100, 40+25*i)
+    local j = 1
+    for k, player in pairs(self.players) do
+        love.graphics.print('#'..k, 100, 40+25*j)
+        j = j + 1
     end
 
     for i, peer in ipairs(self.server.peers) do

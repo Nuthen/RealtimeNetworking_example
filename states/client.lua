@@ -26,8 +26,6 @@ function game:init()
     end)
 
     self.client:on("newPlayer", function(data)
-        local player = Player:new(data.x, data.y, data.color, data.peerIndex)
-        table.insert(self.players, player)
     end)
 
     self.client:on("index", function(data)
@@ -36,7 +34,7 @@ function game:init()
 
     self.client:on("movePlayer", function(data)
         for k, player in pairs(self.players) do
-            if player.peerIndex == data.peerIndex then
+            if player.peerIndex == data.index then
                 if player.peerIndex ~= self.ownPlayerIndex then
                     player:setTween(data.x, data.y)
                 else
@@ -81,11 +79,8 @@ function game:keypressed(key, code)
     end
 
     if key == 'f2' then
-        for k, player in pairs(self.players) do
-            if player.peerIndex == self.ownPlayerIndex then
-                player:setAutono()
-            end
-        end
+        local clientId = self.client.connectId
+        player:setAutono()
     end
 end
 
@@ -105,11 +100,11 @@ function game:update(dt)
     self.timer = self.timer + dt
     self.tock = self.tock + dt
     
-    for k, player in pairs(self.players) do
-        if player.peerIndex == self.ownPlayerIndex then -- only do an input update for your own player
-            player:inputUpdate()
-            player:movePrediction(dt)
-        end
+    -- only do an input update for your own player
+    local clientId = self.client.connectId
+    if player then
+        player:inputUpdate()
+        player:movePrediction(dt)
     end
 
     self.client:update(dt)
@@ -117,15 +112,13 @@ function game:update(dt)
     if self.tock >= self.tick then
         self.tock = 0
 
-        for k, player in pairs(self.players) do
-            if player.peerIndex == self.ownPlayerIndex then
-                local xPos = math.floor(player.position.x*1000)/1000
-                local yPos = math.floor(player.position.y*1000)/1000
-                local xVel = math.floor(player.velocity.x*1000)/1000
-                local yVel = math.floor(player.velocity.y*1000)/1000
+        if player then
+            local xPos = math.floor(player.position.x*1000)/1000
+            local yPos = math.floor(player.position.y*1000)/1000
+            local xVel = math.floor(player.velocity.x*1000)/1000
+            local yVel = math.floor(player.velocity.y*1000)/1000
 
-                self.client:emit("entityState", {x = xPos, y = yPos, vx = xVel, vy = yVel}, "unreliable")
-            end
+            self.client:emit("entityState", {x = xPos, y = yPos, vx = xVel, vy = yVel}, "unreliable")
         end
     end
 end
@@ -151,9 +144,9 @@ function game:draw()
     love.graphics.print("You are #"..self.ownPlayerIndex, 5, 500)
 
     -- print each player's name
-    for i = 1, #self.players do
-        local player = self.players[i]
-        love.graphics.print('#'..player.peerIndex, 100, 40+25*i)
+    local j = 1
+    for k, player in pairs(self.players) do
+        j = j + 1
     end
 
     -- print the ping
@@ -171,6 +164,6 @@ function game:draw()
     local receivedData = self.client.host:total_received_data()
     receivedDataSec = receivedData/self.timer
     receivedData = math.floor(receivedData/1000) / 1000 -- converted to MB and rounded some
-    receivedDataSec = math.floor(sentDataSec) / 1000 -- should be in KB/s
+    receivedDataSec = math.floor(receivedDataSec) / 1000 -- should be in KB/s
     love.graphics.print('Received Data: '.. receivedData .. ' MB | ' .. receivedDataSec .. ' KB/s', 5, 450)
 end
