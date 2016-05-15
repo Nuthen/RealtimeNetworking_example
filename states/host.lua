@@ -2,6 +2,7 @@ host = {}
 
 function host:init()
     self.players = {}
+    self.enemies = {}
 
     self.server = socket.Server:new("*", 22122, 0)
     print('--- server ---')
@@ -56,12 +57,25 @@ function host:init()
         self.server:log("entityState", data.x ..' '.. data.y ..' '.. data.vx ..' '.. data.vy)
     end)
 
+    self.server:on("addEnemy", function(data, peer)
+        if #self.enemies < self.enemyMax then
+            local enemy = Enemy:new()
+            table.insert(self.enemies, enemy)
+            local index = #self.enemies
+
+            self.server:emitToAll("newEnemy", {x = enemy.position.x, y = enemy.position.y, color = enemy.color, index = index})
+        end
+        self.server:log("addEnemy", index)
+    end)
+
     self.timers = {}
     self.timers.userlist = 0
 
     self.timer = 0
     self.tick = 1/30 -- server sends 30 state packets per second
     self.tock = 0
+
+    self.enemyMax = 15
 
     self.readCount = 2
 end
@@ -126,12 +140,27 @@ function host:update(dt)
 
             self.server:emitToAll("movePlayer", {x = xPos, y = yPos, index = k})
         end
+
+        for k, enemy in pairs(self.enemies) do
+            local xPos = math.floor(enemy.position.x*1000)/1000
+            local yPos = math.floor(enemy.position.y*1000)/1000
+
+            self.server:emitToAll("moveEnemy", {x = xPos, y = yPos, index = k})
+        end
+    end
+
+    for k, enemy in pairs(self.enemies) do
+        enemy:update(dt, self.timer)
     end
 end
 
 function host:draw()
     for k, player in pairs(self.players) do
         player:draw()
+    end
+
+    for k, enemy in pairs(self.enemies) do
+        enemy:draw()
     end
 
     love.graphics.setFont(font[16])
@@ -155,4 +184,6 @@ function host:draw()
         local ping = peer:round_trip_time() or -1
         love.graphics.print('Ping: '..ping, 140, 40+25*i)
     end
+
+    love.graphics.print("Enemies: " .. #self.enemies, 400, 25)
 end

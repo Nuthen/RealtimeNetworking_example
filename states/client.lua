@@ -5,6 +5,8 @@ require "entities.input"
 
 function game:init()
     self.players = {}
+    self.enemies = {}
+
     self.ownPlayerIndex = 0
 
     self.client = socket.Client:new("localhost", 22122, true)
@@ -36,17 +38,27 @@ function game:init()
     end)
 
     self.client:on("movePlayer", function(data)
-        for k, player in pairs(self.players) do
-            if player.peerIndex == data.index then
-                if player.peerIndex ~= self.ownPlayerIndex then
-                    player:setTween(data.x, data.y)
-                else
-                    --player.position.x = data.x
-                    --player.position.y = data.y
-                    player.goalX = data.x
-                    player.goalY = data.y
-                end
-            end
+        local player = self.players[data.index]
+        if data.index ~= self.ownPlayerIndex then
+            player:setTween(data.x, data.y)
+        else
+            --player.position.x = data.x
+            --player.position.y = data.y
+            player.goalX = data.x
+            player.goalY = data.y
+        end
+    end)
+
+    self.client:on("newEnemy", function(data)
+        local index = data.index
+        local enemy = Enemy:new(data.x, data.y, data.color, index)
+        self.enemies[index] = enemy
+    end)
+
+    self.client:on("moveEnemy", function(data)
+        local enemy = self.enemies[data.index]
+        if enemy then
+            enemy:setTween(data.x, data.y)
         end
     end)
 
@@ -86,6 +98,10 @@ function game:keypressed(key, code)
         local player = self.players[self.ownPlayerIndex]  -- changed here to debug
         player:setAutono()
     end
+
+    if key == 'space' then
+        self.client:emit("addEnemy", { })
+    end
 end
 
 function game:keyreleased(key, code)
@@ -108,7 +124,7 @@ function game:update(dt)
     local clientId = self.client.connectId
     local player = self.players[self.ownPlayerIndex]  -- changed here to debug
     if player then
-        player:inputUpdate()
+        player:inputUpdate(self.timer)
         player:movePrediction(dt)
     end
 
@@ -133,6 +149,10 @@ function game:draw()
 
     for k, player in pairs(self.players) do
         player:draw(self.showRealPos)
+    end
+
+    for k, enemy in pairs(self.enemies) do
+        enemy:draw()
     end
 
     love.graphics.print('FPS: '..love.timer.getFPS(), 300, 5)
@@ -163,13 +183,17 @@ function game:draw()
     local sentData = self.client.host:total_sent_data()
     sentDataSec = sentData/self.timer
     sentData = math.floor(sentData/1000) / 1000 -- MB
-    sentDataSec = math.floor(sentDataSec) / 1000 -- KB/s
-    love.graphics.print('Sent Data: '.. sentData .. ' MB | ' .. sentDataSec .. ' KB/s', 5, 420)
+    sentDataSec = math.floor(sentDataSec/10) / 100 -- KB/s
+    love.graphics.print('Sent Data: '.. sentData .. ' MB', 46, 420)
+    love.graphics.print('| ' .. sentDataSec .. ' KB/s', 250, 420)
 
     -- print the amount of data received
     local receivedData = self.client.host:total_received_data()
     receivedDataSec = receivedData/self.timer
     receivedData = math.floor(receivedData/1000) / 1000 -- converted to MB and rounded some
-    receivedDataSec = math.floor(receivedDataSec) / 1000 -- should be in KB/s
-    love.graphics.print('Received Data: '.. receivedData .. ' MB | ' .. receivedDataSec .. ' KB/s', 5, 450)
+    receivedDataSec = math.floor(receivedDataSec/10) / 100 -- should be in KB/s
+    love.graphics.print('Received Data: '.. receivedData .. ' MB', 5, 450)
+    love.graphics.print('| ' .. receivedDataSec .. ' KB/s', 250, 450)
+
+    love.graphics.print("Enemies: " .. #self.enemies, 450, 25)
 end
