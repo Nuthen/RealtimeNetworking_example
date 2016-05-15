@@ -26,6 +26,9 @@ function game:init()
     end)
 
     self.client:on("newPlayer", function(data)
+        local connectId = data.index
+        local player = Player:new(data.x, data.y, data.color, connectId)
+        table.insert(self.players, connectId, player)  -- changed here to debug
     end)
 
     self.client:on("index", function(data)
@@ -80,6 +83,7 @@ function game:keypressed(key, code)
 
     if key == 'f2' then
         local clientId = self.client.connectId
+        local player = self.players[self.ownPlayerIndex]  -- changed here to debug
         player:setAutono()
     end
 end
@@ -102,6 +106,7 @@ function game:update(dt)
     
     -- only do an input update for your own player
     local clientId = self.client.connectId
+    local player = self.players[self.ownPlayerIndex]  -- changed here to debug
     if player then
         player:inputUpdate()
         player:movePrediction(dt)
@@ -146,6 +151,7 @@ function game:draw()
     -- print each player's name
     local j = 1
     for k, player in pairs(self.players) do
+        love.graphics.print('#'..player.peerIndex, 100, 40+25*j)
         j = j + 1
     end
 
