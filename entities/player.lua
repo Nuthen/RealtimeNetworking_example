@@ -4,9 +4,12 @@ function Player:initialize(x, y, color, peerIndex)
 	local x, y = x or math.random(0, love.graphics.getWidth()), y or math.random(0, love.graphics.getHeight())
 	self.position = vector(x, y)
 	self.prevPosition = vector(x, y)
+	self.lastSentPos = vector(x, y)
 
 	self.velocity = vector(0, 0)
 	self.prevVelocity = vector(0, 0)
+	self.lastSentVel = vector(0, 0)
+
 	self.width = 40
 	self.height = 40
 	self.speed = 280
@@ -90,7 +93,7 @@ function Player:draw(showRealPos)
 
 	love.graphics.setColor(self.color)
 
-	love.graphics.rectangle('fill', self.position.x, self.position.y, self.width, self.height)
+	love.graphics.rectangle('fill', self.position.x - self.width/2, self.position.y - self.height/2, self.width, self.height)
 
 	if showRealPos then
 		love.graphics.setColor(255, 0, 0, 165)

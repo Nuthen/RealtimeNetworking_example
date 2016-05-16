@@ -5,10 +5,11 @@ function Enemy:initialize(x, y, color, peerIndex)
 	self.position = vector(x, y)
 	self.lastSentPos = vector(x, y)
 	self.velocity = vector(0, 0)
+	self.lastSentVel = vector(0, 0)
 
 	self.width = 40
 	self.height = 40
-	self.speed = 280
+	self.speed = 240
 	self.color = color or {math.random(0, 225), math.random(0, 225), math.random(0, 225)}
 
 	-- this is the goal position to be tweened towards
@@ -28,7 +29,12 @@ function Enemy:initialize(x, y, color, peerIndex)
 	-- there is an issue with peerIndex and disconnect
 	self.peerIndex = peerIndex or 0
 
+	self.directionLimit = 18 -- -1
+
 	self.lerpTween = nil -- stores the tween for interpolation of a non-client Enemy
+
+	self.deg = 0
+	self.lastSentDeg = 0
 end
 
 -- client function to enable autonomous movement
@@ -40,18 +46,34 @@ function Enemy:setAutono()
 end
 
 -- used by server
-function Enemy:update(dt, time)
-	local dx = math.cos(time * self.circleSize)
-	local dy = math.sin(time * self.circleSize)
+function Enemy:update(dt, time, players)
+	local closestPlayer = nil
+	local closestDist = 0
+
+	-- finds the player closest to the enemy and stores it in closest player
+	for k, player in pairs(players) do
+		local dist = math.sqrt((self.position.x - player.position.x)^2 + (self.position.y - player.position.y)^2)
+		if not closestPlayer or dist < closestDist then
+			closestPlayer = player
+			closestDist = dist
+		end
+	end
+
+	local player = closestPlayer
+
+	self.angle = math.atan2(player.position.y - self.position.y, player.position.x - self.position.x)
+
+	if self.directionLimit > 0 then
+		self.angle = math.floor((self.angle/math.rad(360/self.directionLimit)) + .5)*math.rad(360/self.directionLimit)
+	end
+	
+	self.deg = math.deg(self.angle)
+
+	local dx = math.cos(self.angle)
+	local dy = math.sin(self.angle)
 
 	self.velocity.x = dx * self.speed
 	self.velocity.y = dy * self.speed
-
-	if self.velocity.x ~= 0 and self.velocity.y ~= 0 then -- diagonal movement is multipled to be the same overall speed
-		self.velocity.x, self.velocity.y = self.velocity.x * 0.70710678118, self.velocity.y * 0.70710678118
-	end
-
-	self.velocity.x, self.velocity.y = (self.velocity.x/self.speed)^2 * self.speed * math.abs(self.velocity.x)/self.velocity.x, (self.velocity.y/self.speed)^2 * self.speed * math.abs(self.velocity.y)/self.velocity.y
 
 	self.position.x = self.position.x + self.velocity.x * dt
 	self.position.y = self.position.y + self.velocity.y * dt

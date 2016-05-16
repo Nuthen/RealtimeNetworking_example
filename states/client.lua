@@ -58,8 +58,18 @@ function game:init()
     self.client:on("moveEnemy", function(data)
         local enemy = self.enemies[data.index]
         if enemy then
-            enemy:setTween(data.x, data.y)
+            --enemy:setTween(data.x, data.y)
+            enemy.position.x = data.x
+            enemy.position.y = data.y
+            --enemy.velocity.x = data.vx
+            --enemy.velocity.y = data.vy
+            local deg = data.deg
+            enemy.velocity.x = math.cos(math.rad(data.deg)) * enemy.speed
+            enemy.velocity.y = math.sin(math.rad(data.deg)) * enemy.speed
         end
+
+        --self.client:log("moveEnemy", data.x ..' '.. data.y ..' '.. data.vx ..' '.. data.vy)
+        self.client:log("moveEnemy", data.x ..' '.. data.y ..' '.. data.deg)
     end)
 
     self.chatting = false
@@ -102,6 +112,10 @@ function game:keypressed(key, code)
     if key == 'space' then
         self.client:emit("addEnemy", { })
     end
+
+    if key == 'r' then
+        self.client:emit("resetEnemy", { })
+    end
 end
 
 function game:keyreleased(key, code)
@@ -128,6 +142,12 @@ function game:update(dt)
         player:movePrediction(dt)
     end
 
+    for k, enemy in pairs(self.enemies) do
+        enemy:update(dt, game.timer, self.players)
+        --enemy:movePrediction(dt)
+        --enemy:setTween(enemy.position.x, enemy.position.y)
+    end
+
     self.client:update(dt)
 
     if self.tock >= self.tick then
@@ -139,7 +159,12 @@ function game:update(dt)
             local xVel = math.floor(player.velocity.x*1000)/1000
             local yVel = math.floor(player.velocity.y*1000)/1000
 
-            self.client:emit("entityState", {x = xPos, y = yPos, vx = xVel, vy = yVel}, "unreliable")
+            if xPos ~= player.lastSentPos.x or yPos ~= player.lastSentPos.y or xVel ~= player.lastSentVel.x or yVel ~= player.lastSentVel.y then
+                self.client:emit("entityState", {x = xPos, y = yPos, vx = xVel, vy = yVel})
+
+                player.lastSentPos.x, player.lastSentPos.y = xPos, yPos
+                player.lastSentVel.x, player.lastSentVel.y = yVel, xVel
+            end
         end
     end
 end
