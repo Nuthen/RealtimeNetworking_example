@@ -59,6 +59,7 @@ function host:init()
     end)
 
     self.server:on("addEnemy", function(data, peer)
+        for i = 1, 10 do
             if #self.enemies < self.enemyMax then
                 local enemy = Enemy:new()
                 table.insert(self.enemies, enemy)
