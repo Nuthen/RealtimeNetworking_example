@@ -1,3 +1,6 @@
+packetsSent = 0
+packetsReceived = 0
+
 -- libraries
 class = require 'lib.middleclass'
 vector = require 'lib.vector'

@@ -73,6 +73,8 @@ function sock.Server:emitToAll(name, data)
     }
     local serializedMessage = bitser.dumps(message)
 
+    packetsSent = packetsSent + #self.peers
+
     self.host:broadcast(serializedMessage)
 end
 
@@ -88,6 +90,7 @@ function sock.Server:emitToAllBut(peer, name, data)
 
     for i, p in pairs(self.peers) do
         if p ~= peer then
+            packetsSent = packetsSent + 1
             p:send(serializedMessage)
         end
     end
@@ -98,7 +101,9 @@ function sock.Server:on(name, callback)
         self.triggers[name] = {}
     end
 
-    table.insert(self.triggers[name], callback)    
+    table.insert(self.triggers[name], callback)
+
+    packetsReceived = packetsReceived + 1
 
     return callback
 end
@@ -107,6 +112,7 @@ function sock.Server:_activateTriggers(name, data, client)
     if self.triggers[name] then
         for k, callback in pairs(self.triggers[name]) do
             callback(data, client)
+            packetsReceived = packetsReceived + 1
         end
     else
         self:log("warning", "Tried to activate trigger: '" .. name .. "' but it does not exist.")
@@ -206,6 +212,8 @@ function sock.Client:emit(name, data, flag)
     end
 
     self.server:send(serializedMessage, 0, flag)
+
+    packetsSent = packetsSent + 1
 end
 
 function sock.Client:on(name, callback)
@@ -213,7 +221,9 @@ function sock.Client:on(name, callback)
         self.triggers[name] = {}
     end
 
-    table.insert(self.triggers[name], callback)    
+    table.insert(self.triggers[name], callback)   
+
+    packetsReceived = packetsReceived + 1 
 
     return callback
 end
@@ -222,6 +232,7 @@ function sock.Client:_activateTriggers(name, data)
     if self.triggers[name] then
         for k,v in pairs(self.triggers[name]) do
             v(data)
+            packetsReceived = packetsReceived + 1
         end
     else
         self:log("warning", "Tried to activate trigger: '" .. name .. "' but it does not exist.")

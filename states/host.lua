@@ -185,5 +185,31 @@ function host:draw()
         love.graphics.print('Ping: '..ping, 140, 40+25*i)
     end
 
+    -- print the amount of data sent
+    local sentData = self.server.host:total_sent_data()
+    sentDataSec = sentData/self.timer
+    sentData = math.floor(sentData/1000) / 1000 -- MB
+    sentDataSec = math.floor(sentDataSec/10) / 100 -- KB/s
+    love.graphics.print('Sent Data: '.. sentData .. ' MB', 46, 420)
+    love.graphics.print('| ' .. sentDataSec .. ' KB/s', 250, 420)
+
+    local packetsSentSec = packetsSent / self.timer
+    packetsSentSec = math.floor(packetsSentSec*10000)/10000
+    love.graphics.print('Sent Packets: '.. packetsSent, 370, 420)
+    love.graphics.print('| ' .. packetsSentSec .. ' packet/s', 574, 420)
+
+    -- print the amount of data received
+    local receivedData = self.server.host:total_received_data()
+    receivedDataSec = receivedData/self.timer
+    receivedData = math.floor(receivedData/1000) / 1000 -- converted to MB and rounded some
+    receivedDataSec = math.floor(receivedDataSec/10) / 100 -- should be in KB/s
+    love.graphics.print('Received Data: '.. receivedData .. ' MB', 5, 450)
+    love.graphics.print('| ' .. receivedDataSec .. ' KB/s', 250, 450)
+
+    local packetsReceivedSec = packetsReceived / self.timer
+    packetsReceivedSec = math.floor(packetsReceivedSec*10000)/10000
+    love.graphics.print('Received Packets: '.. packetsReceived, 370, 450)
+    love.graphics.print('| ' .. packetsReceivedSec .. ' packet/s', 574, 450)
+
     love.graphics.print("Enemies: " .. #self.enemies, 400, 25)
 end
