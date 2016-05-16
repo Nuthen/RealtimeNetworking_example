@@ -115,9 +115,9 @@ function host:update(dt)
 
     self.server:update(dt)
 
-    --for k, player in pairs(self.players) do
-        --player:movePrediction(dt)
-    --end
+    for k, player in pairs(self.players) do
+        player:movePrediction(dt)
+    end
 
     if self.tock >= self.tick then
         self.tock = 0
