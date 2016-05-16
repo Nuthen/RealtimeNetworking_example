@@ -14,6 +14,7 @@ function host:init()
         self:sendUserlist()
         self:sendAllPlayers(peer)
         self:addPlayer(peer)
+        self:sendAllEnemies(peer)
     end)
 
     self.server:on("identify", function(username, peer)
@@ -58,12 +59,15 @@ function host:init()
     end)
 
     self.server:on("addEnemy", function(data, peer)
-        if #self.enemies < self.enemyMax then
-            local enemy = Enemy:new()
-            table.insert(self.enemies, enemy)
-            local index = #self.enemies
+            if #self.enemies < self.enemyMax then
+                local enemy = Enemy:new()
+                table.insert(self.enemies, enemy)
+                local index = #self.enemies
 
-            self.server:emitToAll("newEnemy", {x = enemy.position.x, y = enemy.position.y, color = enemy.color, index = index})
+                self.enemyDifferenceTick = self.enemyTick/#self.enemies
+
+                self.server:emitToAll("newEnemy", {x = enemy.position.x, y = enemy.position.y, color = enemy.color, index = index})
+            end
         end
         self.server:log("addEnemy", index)
     end)
@@ -74,8 +78,8 @@ function host:init()
             enemy.position = vector(x, y)
         end
 
-        self.enemyTock = self.enemyTick -- send out this new information right away!
-        
+        self:sendAllEnemiesToAll()
+
         self.server:log("resetEnemy", index)
     end)
 
@@ -86,10 +90,12 @@ function host:init()
     self.tick = 1/30 -- server sends 30 state packets per second
     self.tock = 0
 
-    self.enemyTick = 1
+    self.enemyTick = 5
     self.enemyTock = 0
+    self.enemyDifferenceTick = 0
+    self.currentEnemyIndex = 1
 
-    self.enemyMax = 100
+    self.enemyMax = 10000
 
     self.readCount = 2
 end
@@ -108,6 +114,27 @@ end
 function host:sendAllPlayers(peer)
     for k, player in pairs(self.players) do
         peer:emit("newPlayer", {x = player.position.x, y = player.position.y, color = player.color, index = k})
+    end
+end
+
+function host:sendAllEnemies(peer)
+    for k, enemy in pairs(self.enemies) do
+        peer:emit("newEnemy", {x = enemy.position.x, y = enemy.position.y, color = enemy.color, index = k})
+    end
+end
+
+function host:sendAllEnemiesToAll()
+    for k, enemy in pairs(self.enemies) do
+        local xPos = math.floor(enemy.position.x*1000)/1000
+        local yPos = math.floor(enemy.position.y*1000)/1000
+        local xVel = math.floor(enemy.velocity.x*1000)/1000
+        local yVel = math.floor(enemy.velocity.y*1000)/1000
+
+        if enemy.deg ~= enemy.lastSentDeg then
+            self.server:emitToAll("moveEnemy", {x = xPos, y = yPos, deg = enemy.deg, index = k})
+            
+            enemy.lastSentDeg = enemy.deg
+        end
     end
 end
 
@@ -165,23 +192,33 @@ function host:update(dt)
         end
     end
 
-    if self.enemyTock >= self.enemyTick then
+    --if self.enemyTock >= self.enemyTick then
+    if self.enemyTock >= self.enemyDifferenceTick then
         self.enemyTock = 0
 
-        for k, enemy in pairs(self.enemies) do
-            local xPos = math.floor(enemy.position.x*1000)/1000
-            local yPos = math.floor(enemy.position.y*1000)/1000
-            local xVel = math.floor(enemy.velocity.x*1000)/1000
-            local yVel = math.floor(enemy.velocity.y*1000)/1000
+        if #self.enemies > 0 then
+            local enemy = self.enemies[self.currentEnemyIndex]
 
-            --if xVel ~= enemy.lastSentVel.x or yVel ~= enemy.lastSentVel.y then
-            if enemy.deg ~= enemy.lastSentDeg then
-                --self.server:emitToAll("moveEnemy", {x = xPos, y = yPos, vx = enemy.velocity.x, vy = enemy.velocity.y, index = k})
-                self.server:emitToAll("moveEnemy", {x = xPos, y = yPos, deg = enemy.deg, index = k})
+            --for k, enemy in pairs(self.enemies) do
+                local xPos = math.floor(enemy.position.x*1000)/1000
+                local yPos = math.floor(enemy.position.y*1000)/1000
+                local xVel = math.floor(enemy.velocity.x*1000)/1000
+                local yVel = math.floor(enemy.velocity.y*1000)/1000
 
-                --enemy.lastSentPos.x, enemy.lastSentPos.y = xPos, yPos
-                --enemy.lastSentVel.x, enemy.lastSentVel.y = yVel, xVel
-                enemy.lastSentDeg = enemy.deg
+                --if xVel ~= enemy.lastSentVel.x or yVel ~= enemy.lastSentVel.y then
+                if enemy.deg ~= enemy.lastSentDeg then
+                    --self.server:emitToAll("moveEnemy", {x = xPos, y = yPos, vx = enemy.velocity.x, vy = enemy.velocity.y, index = k})
+                    self.server:emitToAll("moveEnemy", {x = xPos, y = yPos, deg = enemy.deg, index = k})
+
+                    --enemy.lastSentPos.x, enemy.lastSentPos.y = xPos, yPos
+                    --enemy.lastSentVel.x, enemy.lastSentVel.y = yVel, xVel
+                    enemy.lastSentDeg = enemy.deg
+                end
+            --end
+
+            self.currentEnemyIndex = self.currentEnemyIndex + 1
+            if self.currentEnemyIndex > #self.enemies then
+                self.currentEnemyIndex = 1
             end
         end
     end
@@ -229,7 +266,7 @@ function host:draw()
     local packetsSentSec = packetsSent / self.timer
     packetsSentSec = math.floor(packetsSentSec*10000)/10000
     love.graphics.print('Sent Packets: '.. packetsSent, 370, 420)
-    love.graphics.print('| ' .. packetsSentSec .. ' packet/s', 574, 420)
+    love.graphics.print('| ' .. packetsSentSec .. ' packet/s', 594, 420)
 
     -- print the amount of data received
     local receivedData = self.server.host:total_received_data()
@@ -242,7 +279,7 @@ function host:draw()
     local packetsReceivedSec = packetsReceived / self.timer
     packetsReceivedSec = math.floor(packetsReceivedSec*10000)/10000
     love.graphics.print('Received Packets: '.. packetsReceived, 370, 450)
-    love.graphics.print('| ' .. packetsReceivedSec .. ' packet/s', 574, 450)
+    love.graphics.print('| ' .. packetsReceivedSec .. ' packet/s', 594, 450)
 
     love.graphics.print("Enemies: " .. #self.enemies, 400, 25)
 end

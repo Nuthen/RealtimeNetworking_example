@@ -215,7 +215,7 @@ function game:draw()
     local packetsSentSec = packetsSent / self.timer
     packetsSentSec = math.floor(packetsSentSec*10000)/10000
     love.graphics.print('Sent Packets: '.. packetsSent, 370, 420)
-    love.graphics.print('| ' .. packetsSentSec .. ' packet/s', 574, 420)
+    love.graphics.print('| ' .. packetsSentSec .. ' packet/s', 594, 420)
 
     -- print the amount of data received
     local receivedData = self.client.host:total_received_data()
@@ -228,7 +228,7 @@ function game:draw()
     local packetsReceivedSec = packetsReceived / self.timer
     packetsReceivedSec = math.floor(packetsReceivedSec*10000)/10000
     love.graphics.print('Received Packets: '.. packetsReceived, 370, 450)
-    love.graphics.print('| ' .. packetsReceivedSec .. ' packet/s', 574, 450)
+    love.graphics.print('| ' .. packetsReceivedSec .. ' packet/s', 594, 450)
 
     love.graphics.print("Enemies: " .. #self.enemies, 450, 25)
 end
