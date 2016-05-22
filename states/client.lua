@@ -3,6 +3,41 @@ game = {}
 inspect = require "lib.inspect"
 require "entities.input"
 
+function game:add(obj, tabl)
+    if tabl == nil then
+        tabl = objects
+    end
+    for i, v in pairs(tabl) do
+        assert(v ~= obj)
+    end
+    table.insert(tabl, obj)
+
+    local r = obj.maxRadius or obj.radius -- takes the maxRadius if it exists (for objects with changing radius), otherwise just the radius
+    self.world:add(obj, obj.position.x - r, obj.position.y - r, r*2, r*2)
+
+    return obj
+end
+function game:addBullet(obj)
+    return self:add(obj, bullets)
+end
+
+function game:remove(obj, tabl)
+    if tabl == nil then
+        tabl = objects
+    end
+    for i, v in ipairs(tabl) do
+        if v == obj then
+            table.remove(tabl, i)
+            break
+        end
+    end
+    self.world:remove(obj)    
+end
+
+function game:removeBullet(obj)
+    self:remove(obj, bullets)
+end
+
 function game:init()
     self.players = {}
     self.enemies = {}
@@ -50,9 +85,7 @@ function game:init()
     end)
 
     self.client:on("newEnemy", function(data)
-        local index = data.index
-        local enemy = Enemy:new(data.x, data.y, data.color, index)
-        self.enemies[index] = enemy
+        self:newEnemy(Blob, data.x, data.y, index)
     end)
 
     self.client:on("moveEnemy", function(data)
@@ -83,7 +116,20 @@ function game:init()
 
     self.showRealPos = false
 
-    self.readCount = 2
+    -- collision detection
+    self.worldSize = vector(3000, 2000)
+
+    self.cellSize = 200
+    self.world = bump.newWorld(self.cellSize)
+end
+
+function game:newEnemy(enemyType, x, y, index)
+    local enemy = enemyType:new()
+    local index = data.index
+    local enemy = Enemy:new(x, y, index)
+    local r = enemy.radius
+    self:add(enemy, self.enemies)
+    self.enemies[index] = enemy
 end
 
 function game:enter(prev, hostname, username)
@@ -143,10 +189,42 @@ function game:update(dt)
     end
 
     for k, enemy in pairs(self.enemies) do
-        enemy:update(dt, game.timer, self.players)
+        enemy:update(dt, game.timer, self.players, self.world)
         --enemy:movePrediction(dt)
         --enemy:setTween(enemy.position.x, enemy.position.y)
     end
+
+    --if player.health >= 0 then
+        --local toUpdate = {objects, bullets}
+        local toUpdate = {self.enemies}
+        for i, tabl in ipairs(toUpdate) do
+            for j, obj in ipairs(tabl) do
+                -- update object positions
+                obj:update(dt)
+
+                local r = math.max(1, obj.radius) -- bump requires the radius to be at least 1
+                self.world:update(obj, obj.position.x - r, obj.position.y - r, r*2, r*2)
+
+                -- check for object collisions
+                local ax, ay, cols, len = self.world:check(obj, obj.position.x - r, obj.position.y - r)
+                obj.moveAway = vector(0, 0)
+                for i=1, len do
+                    obj:handleCollision(cols[i])
+                    if obj._handleCollision then
+                        obj:_handleCollision(cols[i])
+                    end
+                end
+            end
+
+            -- remove objects that are marked to be destroyed
+            for j = #tabl, 1, -1 do
+                local obj = tabl[j]
+                if obj.destroy then
+                  self:remove(obj, tabl)
+                end
+            end
+        end
+    --end
 
     self.client:update(dt)
 

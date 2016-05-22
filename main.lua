@@ -2,6 +2,7 @@ packetsSent = 0
 packetsReceived = 0
 
 -- libraries
+bump = require 'lib.bump'
 class = require 'lib.middleclass'
 vector = require 'lib.vector'
 state = require 'lib.state'
@@ -19,6 +20,17 @@ require 'states.host'
 -- entities
 require 'entities.player'
 require 'entities.enemy'
+
+-- entities
+require 'entities.entity'
+require 'entities.bullet'
+require 'entities.player'
+require 'entities.enemy.enemy'
+require 'entities.enemy.blob'
+require 'entities.enemy.healer'
+require 'entities.enemy.tank'
+require 'entities.enemy.sweeper'
+require 'entities.enemy.ninja'
 
 function love.load(arg)
     _font = 'assets/font/OpenSans-Regular.ttf'

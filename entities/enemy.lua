@@ -7,8 +7,7 @@ function Enemy:initialize(x, y, color, peerIndex)
 	self.velocity = vector(0, 0)
 	self.lastSentVel = vector(0, 0)
 
-	self.width = 40
-	self.height = 40
+	self.radius = 20
 	self.speed = 240
 	self.color = color or {math.random(0, 225), math.random(0, 225), math.random(0, 225)}
 
@@ -35,6 +34,9 @@ function Enemy:initialize(x, y, color, peerIndex)
 
 	self.deg = 0
 	self.lastSentDeg = 0
+
+    self.collisionPush = 15
+    self.moveAway = vector(0, 0)
 end
 
 -- client function to enable autonomous movement
@@ -46,7 +48,7 @@ function Enemy:setAutono()
 end
 
 -- used by server
-function Enemy:update(dt, time, players)
+function Enemy:update(dt, time, players, world)
 	local closestPlayer = nil
 	local closestDist = 0
 
@@ -75,8 +77,70 @@ function Enemy:update(dt, time, players)
 	self.velocity.x = dx * self.speed
 	self.velocity.y = dy * self.speed
 
+	self.velocity = (self.velocity + self.moveAway):normalized() * self.speed
+
 	self.position.x = self.position.x + self.velocity.x * dt
 	self.position.y = self.position.y + self.velocity.y * dt
+
+	local r = self.radius
+	world:update(self, self.position.x - r, self.position.y - r, r*2, r*2)
+
+	-- check for object collisions
+    local ax, ay, cols, len = world:check(self, self.position.x - r, self.position.y - r)
+    self.moveAway = vector(0, 0)
+    for i=1, len do
+        --self:handleCollision(cols[i])
+        if self._handleCollision then
+            self:_handleCollision(cols[i])
+        end
+    end
+end
+
+function Enemy:_handleCollision(collision)
+    if not self.isDead then -- don't collide during the death tween
+        local obj = collision.other
+
+        if obj:isInstanceOf(Enemy) then
+            if self.position:dist(obj.position) < self.radius + obj.radius then
+                v = vector(self.position.x - obj.position.x, self.position.y - obj.position.y)
+                self.moveAway = self.moveAway + v*self.collisionPush
+            end
+        end
+
+--[[
+        if obj:isInstanceOf(Bullet) then
+            if obj.source ~= nil and obj.source:isInstanceOf(self.class) then return end
+            if self.boss ~= nil then
+                if obj.source == self.boss then return end
+            end
+            if self.isDead then return end
+
+    		-- check for proximity and invincible
+            if self.position:dist(obj.position) <= self.radius + obj.radius then
+                local priorHealth = self.health
+
+    			if not self.invincible and not obj.destroy then
+                    local dmgBase = obj.damage
+                    if obj.source:isInstanceOf(Tank) then
+                        dmgBase = dmgBase * self.ricochetDamageMultiplier
+                    end
+                    local dmg = dmgBase * (1 - self.damageResistance)
+    				self.health = self.health - dmg
+                    local death = self.health <= 0
+    				signal.emit('enemyHit', self, dmg, obj.critical, obj.source, death)
+    				self.flashTime = 20/1000
+                    self.velocity = self.velocity + 0.5 * obj.velocity * (1 - self.knockbackResistance)
+
+                    self.healthTween = tween(.4, self, {healthRadius = self.radius*self.health/self.maxHealth}, "inOutCubic", function()
+                        self.healthTween = nil
+                    end)
+    			end
+                
+                obj:hitTarget(self.health <= 0, priorHealth)
+            end
+        end
+        ]]
+    end
 end
 
 -- used by the client to set the interpolation tween
@@ -108,7 +172,7 @@ function Enemy:draw(showRealPos)
 	love.graphics.setColor(self.color)
 
 	--love.graphics.rectangle('fill', self.position.x, self.position.y, self.width, self.height)
-	love.graphics.circle('fill', self.position.x, self.position.y, self.width/2)
+	love.graphics.circle('fill', self.position.x, self.position.y, self.radius)
 
 	if showRealPos then
 		love.graphics.setColor(255, 0, 0, 165)

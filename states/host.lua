@@ -63,11 +63,14 @@ function host:init()
             if #self.enemies < self.enemyMax then
                 local enemy = Enemy:new()
                 table.insert(self.enemies, enemy)
-                local index = #self.enemies
+                local index = #self.enemies -- this won't work right if enemies get removed
 
                 self.enemyDifferenceTick = self.enemyTick/#self.enemies
 
-                self.server:emitToAll("newEnemy", {x = enemy.position.x, y = enemy.position.y, color = enemy.color, index = index})
+                local r = enemy.radius
+                self.world:add(enemy, enemy.position.x - r, enemy.position.y - r, r*2, r*2)
+
+                self.server:emitToAll("newEnemy", {x = enemy.position.x, y = enemy.position.y, index = index})
             end
         end
         self.server:log("addEnemy", index)
@@ -98,7 +101,11 @@ function host:init()
 
     self.enemyMax = 10000
 
-    self.readCount = 2
+    -- collision detection
+    self.worldSize = vector(3000, 2000)
+
+    self.cellSize = 200
+    self.world = bump.newWorld(self.cellSize)
 end
 
 function host:addPlayer(peer)
@@ -163,7 +170,7 @@ function host:update(dt)
     end
 
     for k, enemy in pairs(self.enemies) do
-        enemy:update(dt, self.timer, self.players)
+        enemy:update(dt, self.timer, self.players, self.world)
     end
 
     if self.tock >= self.tick then
